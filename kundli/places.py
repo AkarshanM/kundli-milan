@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo, available_timezones
 
 import requests
 
+from .i18n import M, Msg
+
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 
 
@@ -70,8 +72,8 @@ class ResolvedTime:
     tz_name: str
     utc_offset: timedelta
     utc: datetime
-    offset_source: str              # "timezone database" | "manual override"
-    notes: list[str] = field(default_factory=list)
+    offset_source: str              # "tzdb" | "manual"
+    notes: list[Msg] = field(default_factory=list)
 
     @property
     def offset_label(self) -> str:
@@ -85,45 +87,30 @@ def resolve_local_time(d: date, t: time, tz_name: str,
 
     if override is not None:
         offset = override
-        source = "manual override"
+        source = "manual"
     else:
         tz = ZoneInfo(tz_name)
         first = naive.replace(tzinfo=tz, fold=0)
         second = naive.replace(tzinfo=tz, fold=1)
         offset = first.utcoffset()
-        source = "timezone database"
+        source = "tzdb"
         if first.utcoffset() != second.utcoffset():
             back = first.astimezone(timezone.utc).astimezone(tz)
             if back.replace(tzinfo=None) != naive:
-                notes.append(
-                    "This clock time was skipped when clocks moved forward "
-                    f"(daylight saving). Using {format_offset(offset)}; "
-                    "override the offset if you know better.")
+                notes.append(M("tz_gap", off=format_offset(offset)))
             else:
-                notes.append(
-                    "This clock time happened twice when clocks moved back "
-                    f"(daylight saving). Using the first, {format_offset(offset)}; "
-                    f"the second would be {format_offset(second.utcoffset())}. "
-                    "Override the offset if needed.")
+                notes.append(M("tz_fold", off=format_offset(offset),
+                               off2=format_offset(second.utcoffset())))
 
     utc = (naive - offset).replace(tzinfo=timezone.utc)
 
-    if source == "timezone database":
+    if source == "tzdb":
         if d.year < 1970:
-            notes.append(
-                "Timezone records before 1970 are less reliable. Please "
-                "double-check the UTC offset shown.")
+            notes.append(M("tz_pre1970"))
         if tz_name == "Asia/Kolkata" and d.year < 1956:
-            notes.append(
-                "Before 1948 (Kolkata) and 1955 (Mumbai) those cities also "
-                "kept local times: Calcutta Time UTC+05:53:20, Bombay Time "
-                "UTC+04:51. If the birth was there and recorded in local "
-                "time, set the offset manually.")
+            notes.append(M("tz_india_local"))
         if tz_name == "Asia/Kolkata" and offset == timedelta(hours=6, minutes=30):
-            notes.append(
-                "India used war time (UTC+06:30) in parts of 1941-1945. "
-                "The database applies it here; confirm with family records "
-                "if possible.")
+            notes.append(M("tz_war_time"))
 
     return ResolvedTime(local=naive, tz_name=tz_name, utc_offset=offset,
                         utc=utc, offset_source=source, notes=notes)

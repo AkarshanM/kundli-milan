@@ -168,26 +168,22 @@ def nadi_of(nakshatra: int) -> int:
 
 
 # --------------------------------------------------------------- Score bands
-SCORE_BANDS = [
-    (0.0, 18.0, "Below 18: traditionally not recommended"),
-    (18.0, 25.0, "18-24: average / acceptable"),
-    (25.0, 33.0, "25-32: very good"),
-    (33.0, 36.01, "33-36: excellent"),
-]
+SCORE_BANDS = [(0.0, 18.0), (18.0, 25.0), (25.0, 33.0), (33.0, 36.01)]
 
 
-def score_band(total: float) -> str:
-    for lo, hi, label in SCORE_BANDS:
+def score_band(total: float) -> int:
+    """Index into SCORE_BANDS (labels live in kundli/i18n.py)."""
+    for i, (lo, hi) in enumerate(SCORE_BANDS):
         if lo <= total < hi:
-            return label
-    return SCORE_BANDS[-1][2]
+            return i
+    return len(SCORE_BANDS) - 1
 
 
 # ------------------------------------------------------------- Mangal Dosha
 # VARIANT: South Indian practice includes house 2; many North Indian texts use
 # only 1, 4, 7, 8, 12. Remove 2 here if you follow the latter.
 MANGLIK_HOUSES = (1, 2, 4, 7, 8, 12)
-MARS_OWN_OR_EXALTED = {0: "own sign", 7: "own sign", 9: "exaltation sign"}
+MARS_OWN_OR_EXALTED = {0: "own", 7: "own", 9: "exalt"}
 # house -> Mars signs for which that house placement is traditionally exempt
 MANGLIK_HOUSE_SIGN_EXCEPTIONS = {
     2: {2, 5},    # Gemini, Virgo

@@ -15,6 +15,7 @@ from pathlib import Path
 import swisseph as swe
 
 from . import data as D
+from .i18n import M, Msg, Name
 
 EPHE_DIR = Path(__file__).resolve().parent.parent / "ephe"
 
@@ -73,9 +74,9 @@ class MoonPos:
         produce identical koota scores."""
         return (self.nakshatra, self.pada, self.rashi, self.vashya)
 
-    def describe(self) -> str:
-        return (f"{D.NAKSHATRAS[self.nakshatra]} pada {self.pada}, "
-                f"{D.RASHIS[self.rashi]}")
+    def describe(self) -> Msg:
+        return M("moon_state", nak=Name("nakshatra", self.nakshatra),
+                 pada=self.pada, rashi=Name("rashi", self.rashi))
 
 
 @dataclass

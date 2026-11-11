@@ -199,11 +199,11 @@ def test_india_war_time():
 def test_dst_gap_is_flagged():
     # US clocks jumped from 02:00 to 03:00 on 2021-03-14.
     rt = resolve_local_time(date(2021, 3, 14), time(2, 30), "America/New_York")
-    assert any("skipped" in n for n in rt.notes)
+    assert any(n.key == "tz_gap" for n in rt.notes)
 
 
 def test_manual_override():
     rt = resolve_local_time(date(1950, 1, 1), time(8, 0), "Asia/Kolkata",
                             override=timedelta(hours=4, minutes=51))
     assert rt.utc == datetime(1950, 1, 1, 3, 9, tzinfo=timezone.utc)
-    assert rt.offset_source == "manual override"
+    assert rt.offset_source == "manual"

@@ -9,12 +9,12 @@ from datetime import date, time, timedelta
 
 import streamlit as st
 
-from kundli import data as D
 from kundli.engine import ACCURACY_WINDOWS, NAK_SPAN, Chart, calculate_chart, sweep
+from kundli.i18n import LANGUAGES, M, Name, tr
 from kundli.matching import ABSENT, CANCELLED, MITIGATED, Person, match
 from kundli.places import (Place, all_timezones, local_day_bounds_utc,
                            resolve_local_time, search_places)
-from kundli.report import KOOTA_MEANING, build_facts, koota_quality, to_markdown
+from kundli.report import build_facts, koota_quality, to_markdown
 
 st.set_page_config(page_title="Kundli Milan", page_icon="🪔", layout="wide")
 
@@ -27,16 +27,30 @@ def secret(name: str, default: str | None = None) -> str | None:
     return value or os.environ.get(name) or default
 
 
+# ------------------------------------------------------------- language
+_, lang_col = st.columns([3, 1])
+LANG = lang_col.radio(tr(M("language"), "en"), list(LANGUAGES),
+                      format_func=LANGUAGES.get, horizontal=True, key="lang")
+
+
+def t(key: str, **params) -> str:
+    return tr(M(key, **params), LANG)
+
+
+def T(x) -> str:
+    return tr(x, LANG)
+
+
 # ------------------------------------------------------------ password gate
 APP_PASSWORD = secret("APP_PASSWORD")
 if APP_PASSWORD and not st.session_state.get("authed"):
-    st.title("🪔 Kundli Milan")
-    pw = st.text_input("Password", type="password")
+    st.title("🪔 " + t("title"))
+    pw = st.text_input(t("password"), type="password")
     if pw:
         if pw == APP_PASSWORD:
             st.session_state.authed = True
             st.rerun()
-        st.error("Wrong password.")
+        st.error(t("wrong_password"))
     st.stop()
 
 
@@ -45,138 +59,145 @@ def cached_search(query: str) -> list[Place]:
     return search_places(query)
 
 
-MONTHS = ["January", "February", "March", "April", "May", "June", "July",
-          "August", "September", "October", "November", "December"]
+ACCURACY_KEYS = ["exact", "approx_15m", "approx_1h", "unknown"]
 
-ACCURACY_OPTIONS = {
-    "exact": "Exact (birth certificate / hospital record)",
-    "approx_15m": "Approximate (within about 15 minutes)",
-    "approx_1h": "Rough (within about an hour)",
-    "unknown": "Unknown",
-}
+
+def month_name(m: int) -> str:
+    return T(Name("month", m - 1))
+
+
+def translated_select(label: str, options: list, fmt, key: str,
+                      default=None, placeholder: str | None = None):
+    """Selectbox whose option labels change with the language. Streamlit
+    keeps showing the old label of an already-selected option, so the widget
+    gets a per-language key while the chosen value is carried over."""
+    store = f"{key}__value"
+    current = st.session_state.get(store, default)
+    index = options.index(current) if current in options else None
+    value = st.selectbox(label, options, index=index, format_func=fmt,
+                         placeholder=placeholder or "", key=f"{key}__{LANG}")
+    st.session_state[store] = value
+    return value
 
 
 # ------------------------------------------------------------------ inputs
-def person_form(title: str, key: str) -> dict:
-    st.subheader(title)
-    name = st.text_input("Full name", key=f"{key}_name")
-    st.markdown("Date of birth")
+def person_form(role: str, key: str) -> dict:
+    st.subheader(t(role))
+    name = st.text_input(t("full_name"), key=f"{key}_name")
+    st.markdown(t("dob"))
     c1, c2, c3 = st.columns(3)
-    day = c1.selectbox("Day", list(range(1, 32)), index=None, placeholder="DD",
-                       key=f"{key}_dd")
-    month = c2.selectbox("Month", list(range(1, 13)), index=None,
-                         placeholder="Month", format_func=lambda m: MONTHS[m - 1],
-                         key=f"{key}_mon")
-    year = c3.selectbox("Year", list(range(date.today().year, 1899, -1)),
+    day = c1.selectbox(t("day"), list(range(1, 32)), index=None,
+                       placeholder="DD", key=f"{key}_dd")
+    with c2:
+        month = translated_select(t("month"), list(range(1, 13)), month_name,
+                                  f"{key}_mon", placeholder=t("month"))
+    year = c3.selectbox(t("year"), list(range(date.today().year, 1899, -1)),
                         index=None, placeholder="YYYY", key=f"{key}_yyyy")
     dob = None
     if day and month and year:
         try:
             dob = date(year, month, day)
         except ValueError:
-            st.error(f"{MONTHS[month - 1]} {year} has no day {day}.")
-    accuracy = st.selectbox("How accurate is the birth time?",
-                            list(ACCURACY_OPTIONS),
-                            format_func=ACCURACY_OPTIONS.get, key=f"{key}_acc")
-    t = None
+            st.error(t("invalid_date", month=month_name(month), year=year, day=day))
+
+    accuracy = translated_select(t("accuracy_q"), ACCURACY_KEYS,
+                                 lambda k: t(f"acc_{k}"), f"{key}_acc",
+                                 default="exact")
+    tm = None
     if accuracy != "unknown":
         c1, c2, c3 = st.columns(3)
-        hour = c1.selectbox("Hour", list(range(1, 13)), index=None,
+        hour = c1.selectbox(t("hour"), list(range(1, 13)), index=None,
                             placeholder="HH", key=f"{key}_h")
-        minute = c2.selectbox("Minute", list(range(60)), index=None,
+        minute = c2.selectbox(t("minute"), list(range(60)), index=None,
                               placeholder="MM", format_func=lambda m: f"{m:02d}",
                               key=f"{key}_m")
-        ampm = c3.selectbox("AM / PM", ["AM", "PM"], index=None,
-                            placeholder="AM/PM", key=f"{key}_ampm")
+        with c3:
+            ampm = translated_select("AM / PM", ["AM", "PM"], t, f"{key}_ampm",
+                                     placeholder="AM/PM")
         if hour is not None and minute is not None and ampm:
-            t = time(hour % 12 + (12 if ampm == "PM" else 0), minute)
+            tm = time(hour % 12 + (12 if ampm == "PM" else 0), minute)
             hint = ""
             if hour == 12:
-                hint = " (just after midnight)" if ampm == "AM" else " (noon)"
-            st.caption(f"24-hour time: **{t:%H:%M}**{hint}")
+                hint = t("hint_midnight") if ampm == "AM" else t("hint_noon")
+            st.caption(t("time24", t=f"{tm:%H:%M}", hint=hint))
 
-    manual = st.checkbox("Enter coordinates manually instead of searching",
-                         key=f"{key}_manual")
+    manual = st.checkbox(t("manual_coords"), key=f"{key}_manual")
     place = None
     if manual:
         c1, c2 = st.columns(2)
-        lat = c1.number_input("Latitude (north +)", -90.0, 90.0, value=None,
+        lat = c1.number_input(t("lat"), -90.0, 90.0, value=None,
                               format="%.4f", key=f"{key}_lat")
-        lon = c2.number_input("Longitude (east +)", -180.0, 180.0, value=None,
+        lon = c2.number_input(t("lon"), -180.0, 180.0, value=None,
                               format="%.4f", key=f"{key}_lon")
         tzs = all_timezones()
-        tz = st.selectbox("Timezone", tzs, index=tzs.index("Asia/Kolkata"),
+        tz = st.selectbox(t("timezone"), tzs, index=tzs.index("Asia/Kolkata"),
                           key=f"{key}_tz")
         if lat is not None and lon is not None:
             place = Place("Manual location", "", "", lat, lon, tz)
     else:
-        query = st.text_input("Place of birth (city or town name only)",
-                              placeholder="e.g. Mysuru", key=f"{key}_q").strip()
+        query = st.text_input(t("place_q"), placeholder=t("place_ph"),
+                              key=f"{key}_q").strip()
         if len(query) >= 2:
             try:
                 results = cached_search(query)
             except Exception:
                 results = None
-                st.warning("Place lookup failed. Check the internet connection, "
-                           "or tick 'Enter coordinates manually'.")
+                st.warning(t("place_fail"))
             if results:
-                place = st.selectbox("Choose the exact place", results,
+                place = st.selectbox(t("choose_place"), results,
                                      format_func=lambda p: p.label,
                                      key=f"{key}_place")
             elif results == []:
-                st.info("No match. Try another spelling (e.g. Bengaluru / "
-                        "Bangalore) or enter coordinates manually.")
+                st.info(t("no_match"))
 
     override = None
-    if st.checkbox("Override UTC offset (only if the timezone shown below is wrong)",
-                   key=f"{key}_ovr"):
+    if st.checkbox(t("override"), key=f"{key}_ovr"):
         c1, c2, c3 = st.columns(3)
-        sign = c1.selectbox("Sign", ["+", "-"], key=f"{key}_osign")
-        oh = c2.number_input("Hours", 0, 14, 5, key=f"{key}_oh")
-        om = c3.number_input("Minutes", 0, 59, 30, key=f"{key}_om")
+        sign = c1.selectbox(t("sign"), ["+", "-"], key=f"{key}_osign")
+        oh = c2.number_input(t("hours"), 0, 14, 5, key=f"{key}_oh")
+        om = c3.number_input(t("minutes"), 0, 59, 30, key=f"{key}_om")
         override = (1 if sign == "+" else -1) * timedelta(hours=oh, minutes=om)
 
-    return {"name": name.strip(), "dob": dob, "accuracy": accuracy, "time": t,
+    return {"name": name.strip(), "dob": dob, "accuracy": accuracy, "time": tm,
             "place": place, "override": override}
 
 
 def resolve(form: dict):
     missing = []
     if not form["name"]:
-        missing.append("name")
+        missing.append("need_name")
     if form["dob"] is None:
-        missing.append("date of birth")
+        missing.append("need_dob")
     if form["accuracy"] != "unknown" and form["time"] is None:
-        missing.append("time of birth (hour, minute and AM/PM)")
+        missing.append("need_time")
     if form["place"] is None:
-        missing.append("place of birth")
+        missing.append("need_place")
     if missing:
         return None, missing
-    t = form["time"] if form["accuracy"] != "unknown" else time(12, 0)
-    rt = resolve_local_time(form["dob"], t, form["place"].timezone, form["override"])
+    tm = form["time"] if form["accuracy"] != "unknown" else time(12, 0)
+    rt = resolve_local_time(form["dob"], tm, form["place"].timezone, form["override"])
     return rt, []
 
 
-def resolved_text(form: dict, rt) -> str:
+def resolved_text(form: dict, rt, lang: str) -> str:
     p = form["place"]
-    when = (f"{form['dob']:%d %b %Y}, time unknown (noon used for the Moon)"
-            if form["accuracy"] == "unknown"
-            else f"{rt.local:%d %b %Y, %H:%M} local")
-    return (f"{when}; {rt.tz_name}, {rt.offset_label} ({rt.offset_source}); "
-            f"= {rt.utc:%d %b %Y %H:%M} UTC; "
-            f"{p.latitude:.4f}, {p.longitude:.4f}")
+    d = f"{form['dob']:%d}-{tr(Name('month', form['dob'].month - 1), lang)}-{form['dob']:%Y}"
+    when = (tr(M("when_unknown", date=d), lang) if form["accuracy"] == "unknown"
+            else tr(M("when_known", date=d, time=f"{rt.local:%H:%M}"), lang))
+    source = tr(Name("offset_source", rt.offset_source), lang)
+    return (f"{when}; {rt.tz_name}, {rt.offset_label} ({source}); "
+            f"= {rt.utc:%Y-%m-%d %H:%M} UTC; {p.latitude:.4f}, {p.longitude:.4f}")
 
 
 def show_resolved(form: dict, rt, missing: list[str]) -> None:
     if missing:
-        st.caption("Still needed: " + ", ".join(missing))
+        st.caption(t("still_needed", items=", ".join(t(m) for m in missing)))
         return
-    st.markdown("**Please check:** " + resolved_text(form, rt))
+    st.markdown(t("please_check", text=resolved_text(form, rt, LANG)))
     if form["accuracy"] == "unknown":
-        st.info("Birth time unknown: the Lagna can't be used, and the Moon is "
-                "checked across the whole day.")
+        st.info(t("unknown_info"))
     for n in rt.notes:
-        st.warning(n)
+        st.warning(T(n))
 
 
 def build_person(form: dict, rt) -> Person:
@@ -212,95 +233,100 @@ def dms(x: float) -> str:
 
 def chart_table(person: Person) -> str:
     ch: Chart = person.chart
-    rows = ["| Body | Sign | Degree | Nakshatra (pada) |", "|---|---|---|---|"]
+    rows = [f"| {t('col_body')} | {t('col_sign')} | {t('col_degree')} | {t('col_nak')} |",
+            "|---|---|---|---|"]
+    bodies = []
     if person.lagna_known and ch.lagna_lon is not None:
-        L = ch.lagna_lon
-        rows.append(f"| **Lagna** | {D.RASHIS[int(L // 30)]} | {dms(L % 30)} | "
-                    f"{D.NAKSHATRAS[int(L // NAK_SPAN)]} |")
-    for name in ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus",
-                 "Saturn", "Rahu", "Ketu"):
-        lon = ch.longitudes[name]
+        bodies.append(("Lagna", ch.lagna_lon))
+    bodies += [(n, ch.longitudes[n]) for n in ("Sun", "Moon", "Mars", "Mercury",
+                                               "Jupiter", "Venus", "Saturn",
+                                               "Rahu", "Ketu")]
+    for name, lon in bodies:
         nak = int(lon // NAK_SPAN)
         pada = int((lon % NAK_SPAN) // (NAK_SPAN / 4)) + 1
-        rows.append(f"| {name} | {D.RASHIS[int(lon // 30)]} | {dms(lon % 30)} | "
-                    f"{D.NAKSHATRAS[nak]} ({pada}) |")
+        label = T(Name("planet", name))
+        if name == "Lagna":
+            label = f"**{label}**"
+        rows.append(f"| {label} | {T(Name('rashi', int(lon // 30)))} | {dms(lon % 30)} | "
+                    f"{T(Name('nakshatra', nak))} ({pada}) |")
     return "\n".join(rows)
 
 
 def show_results(res: dict) -> None:
     bride, groom, r = res["bride"], res["groom"], res["result"]
+    resolved = {role: resolved_text(f, rt, LANG) for role, (f, rt) in res["inputs"].items()}
     st.divider()
     st.header(f"{bride.name} & {groom.name}")
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Guna Milan score", f"{r.total:g} / 36")
-    c2.markdown(f"**Band**  \n{r.band}")
+    c1.metric(t("score_metric"), f"{r.total:g} / 36")
+    c2.markdown(f"**{t('band_label')}**  \n{T(Name('band', r.band))}")
     if r.score_min != r.score_max:
-        c3.metric("Range if the birth time is slightly off",
-                  f"{r.score_min:g} to {r.score_max:g}")
+        c3.metric(t("range_label"), t("range_value", a=r.score_min, b=r.score_max))
     st.progress(min(r.total / 36, 1.0))
 
-    st.subheader("Ashtakoota")
-    rows = ["| Koota | Bride | Groom | Score |", "|---|---|---|---|"]
+    st.subheader(t("ashtakoota"))
+    rows = [f"| {t('col_koota')} | {t('bride')} | {t('groom')} | {t('col_score')} |",
+            "|---|---|---|---|"]
     for k in r.kootas:
-        rows.append(f"| **{k.name}** ({k.max:g}) | {k.bride} | {k.groom} | "
+        rows.append(f"| **{T(k.name)}** ({k.max:g}) | {T(k.bride)} | {T(k.groom)} | "
                     f"**{k.score:g}** / {k.max:g} |")
     st.markdown("\n".join(rows))
 
-    with st.expander("What each koota means"):
+    with st.expander(t("what_means")):
         for k in r.kootas:
-            line = (f"**{k.name} ({k.score:g}/{k.max:g}, "
-                    f"{koota_quality(k.score, k.max)}):** {KOOTA_MEANING[k.key]}")
+            line = (f"**{T(k.name)} ({k.score:g}/{k.max:g}, "
+                    f"{T(koota_quality(k.score, k.max))}):** {t('meaning_' + k.key)}")
             if k.note:
-                line += f" *{k.note}*"
+                line += f" *{T(k.note)}*"
             st.markdown(line)
 
-    st.subheader("Doshas and cancellations")
-    st.caption("A cancellation (parihara) doesn't change the 36-point score; "
-               "it changes whether the dosha is traditionally a concern.")
+    st.subheader(t("doshas_header"))
+    st.caption(t("doshas_caption"))
     for f in r.doshas:
-        body = f"**{f.title}: {f.status}**"
+        body = f"**{T(f.title)}: {T(Name('status', f.status))}**"
         if f.time_sensitive:
-            body += "  ⏱️ *depends on exact birth time*"
-        body += "\n" + "\n".join(f"- {d}" for d in f.details)
+            body += "  " + t("depends_time")
+        body += "\n" + "\n".join(f"- {T(d)}" for d in f.details)
         if f.parihara:
-            body += "\n\n*Parihara (cancellation) applied:*\n" + "\n".join(
-                f"- {p}" for p in f.parihara)
+            body += "\n\n" + t("parihara_applied") + "\n" + "\n".join(
+                f"- {T(p)}" for p in f.parihara)
         {ABSENT: st.success, CANCELLED: st.info,
          MITIGATED: st.warning}.get(f.status, st.error)(body)
 
     if r.sensitivity_notes:
-        st.subheader("Birth-time sensitivity")
+        st.subheader(t("sensitivity_header"))
         for n in r.sensitivity_notes:
-            st.warning(n)
+            st.warning(T(n))
 
-    st.subheader("Chart details")
+    st.subheader(t("chart_details"))
     c1, c2 = st.columns(2)
     for col, role, p in ((c1, "bride", bride), (c2, "groom", groom)):
-        with col, st.expander(f"{p.name}'s chart", expanded=False):
-            st.caption(res["resolved"][role])
-            st.markdown(f"**Moon:** {p.chart.moon.describe()}")
+        with col, st.expander(t("chart_of", name=p.name), expanded=False):
+            st.caption(resolved[role])
+            st.markdown(t("moon_label", state=p.chart.moon.describe()))
             st.markdown(chart_table(p))
-            st.caption(f"Lahiri ayanamsa {dms(p.chart.ayanamsa)} · "
-                       f"{p.chart.ephemeris} · whole-sign houses")
+            st.caption(t("chart_caption", aya=dms(p.chart.ayanamsa),
+                         eph=p.chart.ephemeris))
 
     # ---------------------------------------------------- optional AI
-    facts = build_facts(bride, groom, r)
     api_key = secret("ANTHROPIC_API_KEY")
     ai = st.session_state.get("ai")
     if api_key:
-        st.subheader("Interpretation (AI)")
+        st.subheader(t("ai_header"))
+        ai_langs = ["English", "Kannada", "Hindi", "Tamil", "Telugu", "Marathi",
+                    "Bengali", "Gujarati", "Malayalam"]
         c1, c2 = st.columns([1, 2])
-        lang = c1.selectbox("Language", ["English", "Hindi", "Kannada", "Tamil",
-                                         "Telugu", "Marathi", "Bengali",
-                                         "Gujarati", "Malayalam"])
+        ai_lang = c1.selectbox(t("ai_language"), ai_langs,
+                               index=1 if LANG == "kn" else 0)
         c2.write("")
-        if c2.button("Write interpretation"):
+        if c2.button(t("ai_button")):
             from kundli.ai import DEFAULT_MODEL, AIError, generate_interpretation
-            with st.spinner("Writing the interpretation (about 30 seconds)..."):
+            with st.spinner(t("ai_spinner")):
                 try:
                     ai = generate_interpretation(
-                        facts, api_key, secret("ANTHROPIC_MODEL", DEFAULT_MODEL), lang)
+                        build_facts(bride, groom, r), api_key,
+                        secret("ANTHROPIC_MODEL", DEFAULT_MODEL), ai_lang)
                     st.session_state.ai = ai
                 except AIError as e:
                     st.error(str(e))
@@ -309,36 +335,34 @@ def show_results(res: dict) -> None:
             for w in warns:
                 st.warning(w)
             st.markdown(text)
-            st.caption("Written by AI from the calculated values above. The "
-                       "table and dosha results are the source of truth.")
+            st.caption(t("ai_caption"))
 
     st.download_button(
-        "Download report (Markdown)",
-        data=to_markdown(bride, groom, r, res["resolved"], ai[0] if ai else None),
+        t("download"),
+        data=to_markdown(bride, groom, r, resolved, LANG, ai[0] if ai else None),
         file_name=f"kundli-milan-{bride.name}-{groom.name}.md".replace(" ", "_"),
         mime="text/markdown",
     )
 
 
 # --------------------------------------------------------------------- page
-st.title("🪔 Kundli Milan")
-st.caption("Ashtakoota (36 Guna) matching · Swiss Ephemeris · Lahiri ayanamsa")
+st.title("🪔 " + t("title"))
+st.caption(t("caption"))
 
 col_b, col_g = st.columns(2, gap="large")
 with col_b:
-    bride_form = person_form("Bride", "b")
+    bride_form = person_form("bride", "b")
     bride_rt, b_missing = resolve(bride_form)
     show_resolved(bride_form, bride_rt, b_missing)
 with col_g:
-    groom_form = person_form("Groom", "g")
+    groom_form = person_form("groom", "g")
     groom_rt, g_missing = resolve(groom_form)
     show_resolved(groom_form, groom_rt, g_missing)
 
 st.write("")
 current_sig = (signature(bride_form), signature(groom_form))
-if st.button("Details are correct: calculate match", type="primary",
-             disabled=bool(b_missing or g_missing)):
-    with st.spinner("Calculating charts..."):
+if st.button(t("calc_button"), type="primary", disabled=bool(b_missing or g_missing)):
+    with st.spinner(t("calculating")):
         bride = build_person(bride_form, bride_rt)
         groom = build_person(groom_form, groom_rt)
         st.session_state.match = {
@@ -346,20 +370,16 @@ if st.button("Details are correct: calculate match", type="primary",
             "bride": bride,
             "groom": groom,
             "result": match(bride, groom),
-            "resolved": {"bride": resolved_text(bride_form, bride_rt),
-                         "groom": resolved_text(groom_form, groom_rt)},
+            "inputs": {"bride": (bride_form, bride_rt), "groom": (groom_form, groom_rt)},
         }
         st.session_state.ai = None
 
 res = st.session_state.get("match")
 if res:
     if res["sig"] != current_sig:
-        st.info("The details have changed. Click **calculate match** again "
-                "to update the results.")
+        st.info(t("details_changed"))
     else:
         show_results(res)
 
 st.divider()
-st.caption("For personal use. Calculations follow common North Indian "
-           "Ashtakoota conventions; regional traditions differ. Astrology is "
-           "one input among many: values, respect and communication matter most.")
+st.caption(t("footer"))

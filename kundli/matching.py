@@ -1,7 +1,8 @@
 """Ashtakoota scoring, dosha detection and cancellation (parihara) rules.
 
 Everything here is deterministic. The AI layer only ever explains the output
-of this module; it never computes anything.
+of this module; it never computes anything. Display text is returned as
+language-neutral `Msg` / `Name` objects (see i18n.py).
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from itertools import product
 
 from . import data as D
 from .engine import Chart, MoonPos, Sweep
+from .i18n import Join, M, Msg, Name
 
 # ---------------------------------------------------------------- kootas
 
@@ -17,12 +19,15 @@ from .engine import Chart, MoonPos, Sweep
 @dataclass
 class Koota:
     key: str
-    name: str
     score: float
     max: float
-    bride: str
-    groom: str
-    note: str = ""
+    bride: object          # Name or Msg
+    groom: object
+    note: Msg | None = None
+
+    @property
+    def name(self) -> Name:
+        return Name("koota", self.key)
 
 
 def relation(a: str, b: str) -> str:
@@ -55,55 +60,59 @@ def bhakoot_distance(bride_rashi: int, groom_rashi: int) -> int:
     return (groom_rashi - bride_rashi) % 12 + 1
 
 
-def _yoni_label(nak: int) -> str:
-    sex = "male" if D.NAK_YONI_GENDER[nak] == "M" else "female"
-    return f"{D.YONI_ANIMALS[D.NAK_YONI[nak]]} ({sex})"
+def _yoni(nak: int) -> Msg:
+    return M("yoni_value", animal=Name("yoni", D.NAK_YONI[nak]),
+             sex=Name("sex", D.NAK_YONI_GENDER[nak]))
+
+
+def _P(planet: str) -> Name:
+    return Name("planet", planet)
 
 
 def score_kootas(b: MoonPos, g: MoonPos) -> list[Koota]:
     out: list[Koota] = []
 
     vb, vg = D.RASHI_VARNA[b.rashi], D.RASHI_VARNA[g.rashi]
-    out.append(Koota("varna", "Varna", 1.0 if vg >= vb else 0.0, 1,
-                     D.VARNA_NAMES[vb], D.VARNA_NAMES[vg]))
+    out.append(Koota("varna", 1.0 if vg >= vb else 0.0, 1,
+                     Name("varna", vb), Name("varna", vg)))
 
     cb, cg = b.vashya, g.vashya
-    out.append(Koota("vashya", "Vashya", D.VASHYA_SCORE[cg][cb], 2,
-                     D.VASHYA_CLASSES[cb], D.VASHYA_CLASSES[cg]))
+    out.append(Koota("vashya", D.VASHYA_SCORE[cg][cb], 2,
+                     Name("vashya", cb), Name("vashya", cg)))
 
     c_bg = tara_count(b.nakshatra, g.nakshatra)
     c_gb = tara_count(g.nakshatra, b.nakshatra)
-    tara = 1.5 * tara_good(c_bg) + 1.5 * tara_good(c_gb)
     out.append(Koota(
-        "tara", "Tara", tara, 3,
-        f"{D.TARA_NAMES[c_bg % 9]} (groom's star is #{c_bg} from hers)",
-        f"{D.TARA_NAMES[c_gb % 9]} (bride's star is #{c_gb} from his)",
-        "Vipat, Pratyak and Naidhana are the unfavourable taras."))
+        "tara", 1.5 * tara_good(c_bg) + 1.5 * tara_good(c_gb), 3,
+        M("tara_value_bride", tara=Name("tara", c_bg % 9), n=c_bg),
+        M("tara_value_groom", tara=Name("tara", c_gb % 9), n=c_gb),
+        M("tara_note")))
 
     yb, yg = D.NAK_YONI[b.nakshatra], D.NAK_YONI[g.nakshatra]
-    out.append(Koota("yoni", "Yoni", float(D.YONI_SCORE[yb][yg]), 4,
-                     _yoni_label(b.nakshatra), _yoni_label(g.nakshatra)))
+    out.append(Koota("yoni", float(D.YONI_SCORE[yb][yg]), 4,
+                     _yoni(b.nakshatra), _yoni(g.nakshatra)))
 
     lb, lg = D.RASHI_LORD[b.rashi], D.RASHI_LORD[g.rashi]
-    out.append(Koota("maitri", "Graha Maitri", maitri_points(lb, lg), 5,
-                     f"{lb} (lord of {D.RASHIS[b.rashi]})",
-                     f"{lg} (lord of {D.RASHIS[g.rashi]})",
-                     f"{lb} sees {lg} as {relation(lb, lg)}; "
-                     f"{lg} sees {lb} as {relation(lg, lb)}."))
+    out.append(Koota(
+        "maitri", maitri_points(lb, lg), 5,
+        M("maitri_value", lord=_P(lb), rashi=Name("rashi", b.rashi)),
+        M("maitri_value", lord=_P(lg), rashi=Name("rashi", g.rashi)),
+        M("maitri_note", a=_P(lb), b=_P(lg),
+          rel_ab=Name("rel", relation(lb, lg)),
+          rel_ba=Name("rel", relation(lg, lb)))))
 
     gb, gg = D.NAK_GANA[b.nakshatra], D.NAK_GANA[g.nakshatra]
-    out.append(Koota("gana", "Gana", D.GANA_SCORE[gg][gb], 6,
-                     D.GANA_NAMES[gb], D.GANA_NAMES[gg]))
+    out.append(Koota("gana", D.GANA_SCORE[gg][gb], 6,
+                     Name("gana", gb), Name("gana", gg)))
 
     d = bhakoot_distance(b.rashi, g.rashi)
-    out.append(Koota("bhakoot", "Bhakoot",
-                     0.0 if d in D.BAD_BHAKOOT else 7.0, 7,
-                     D.RASHIS[b.rashi], D.RASHIS[g.rashi],
-                     f"Moon signs are in a {D.BHAKOOT_LABEL[d]} relationship."))
+    out.append(Koota("bhakoot", 0.0 if d in D.BAD_BHAKOOT else 7.0, 7,
+                     Name("rashi", b.rashi), Name("rashi", g.rashi),
+                     M("bhakoot_note", label=D.BHAKOOT_LABEL[d])))
 
     nb, ng = D.nadi_of(b.nakshatra), D.nadi_of(g.nakshatra)
-    out.append(Koota("nadi", "Nadi", 0.0 if nb == ng else 8.0, 8,
-                     D.NADI_NAMES[nb], D.NADI_NAMES[ng]))
+    out.append(Koota("nadi", 0.0 if nb == ng else 8.0, 8,
+                     Name("nadi", nb), Name("nadi", ng)))
     return out
 
 
@@ -119,14 +128,14 @@ ABSENT, PRESENT, MITIGATED, CANCELLED = "Absent", "Present", "Mitigated", "Cance
 @dataclass
 class DoshaFinding:
     key: str
-    title: str
+    title: Msg
     status: str
-    details: list[str] = field(default_factory=list)
-    parihara: list[str] = field(default_factory=list)   # cancellation rules applied
+    details: list[Msg] = field(default_factory=list)
+    parihara: list[Msg] = field(default_factory=list)   # cancellation rules applied
     time_sensitive: bool = False
 
 
-def _status(cancels: list[str], mitigations: list[str]) -> str:
+def _status(cancels: list, mitigations: list) -> str:
     if cancels:
         return CANCELLED
     if mitigations:
@@ -136,26 +145,23 @@ def _status(cancels: list[str], mitigations: list[str]) -> str:
 
 def nadi_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
     nb, ng = D.nadi_of(b.nakshatra), D.nadi_of(g.nakshatra)
-    f = DoshaFinding("nadi", "Nadi Dosha", ABSENT)
+    f = DoshaFinding("nadi", M("dosha_nadi"), ABSENT)
     if nb != ng:
-        f.details.append(f"Different Nadis ({D.NADI_NAMES[nb]} / {D.NADI_NAMES[ng]}).")
+        f.details.append(M("nadi_different", b=Name("nadi", nb), g=Name("nadi", ng)))
         return f
-    f.details.append(f"Both partners have {D.NADI_NAMES[nb]} Nadi (Nadi koota 0/8).")
+    f.details.append(M("nadi_same", nadi=Name("nadi", nb)))
     cancels, mitig = [], []
     lb, lg = D.RASHI_LORD[b.rashi], D.RASHI_LORD[g.rashi]
     if b.rashi == g.rashi and b.nakshatra != g.nakshatra:
-        cancels.append("Same Moon sign but different nakshatras.")
+        cancels.append(M("nadi_ph_same_rashi"))
     elif b.nakshatra == g.nakshatra and b.rashi != g.rashi:
-        cancels.append("Same nakshatra but the Moons are in different signs.")
+        cancels.append(M("nadi_ph_same_nak"))
     elif b.nakshatra == g.nakshatra and b.pada != g.pada:
-        mitig.append("Same nakshatra and sign but different padas "
-                     "(accepted as a relief by some traditions).")
+        mitig.append(M("nadi_ph_diff_pada"))
     if b.nakshatra == g.nakshatra and b.pada == g.pada:
-        f.details.append("Same nakshatra and same pada: traditionally the "
-                         "strongest form, with no standard cancellation.")
+        f.details.append(M("nadi_same_pada"))
     if not cancels and lb != lg and relation(lb, lg) == "friend" and relation(lg, lb) == "friend":
-        mitig.append(f"Moon-sign lords {lb} and {lg} are mutual friends "
-                     "(accepted as a relief by some traditions).")
+        mitig.append(M("nadi_ph_lords_friends", a=_P(lb), b=_P(lg)))
     f.status = _status(cancels, mitig)
     f.parihara = cancels + mitig
     return f
@@ -164,23 +170,22 @@ def nadi_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
 def bhakoot_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
     d = bhakoot_distance(b.rashi, g.rashi)
     label = D.BHAKOOT_LABEL[d]
-    f = DoshaFinding("bhakoot", "Bhakoot Dosha", ABSENT)
+    f = DoshaFinding("bhakoot", M("dosha_bhakoot"), ABSENT)
     if d not in D.BAD_BHAKOOT:
-        f.details.append(f"Moon signs are {label} from each other, which is favourable.")
+        f.details.append(M("bhakoot_ok", label=label))
         return f
-    f.details.append(f"Moon signs are {label} from each other (Bhakoot koota 0/7).")
+    f.details.append(M("bhakoot_bad", label=label))
     if label == "5/9":
-        f.details.append("Some traditions treat 5/9 as milder than 6/8 or 2/12.")
+        f.details.append(M("bhakoot_59_mild"))
     lb, lg = D.RASHI_LORD[b.rashi], D.RASHI_LORD[g.rashi]
     pts = maitri_points(lb, lg)
     cancels, mitig = [], []
     if lb == lg:
-        cancels.append(f"Both Moon signs are ruled by {lb}.")
+        cancels.append(M("bhakoot_ph_same_lord", lord=_P(lb)))
     elif pts == 5.0:
-        cancels.append(f"Moon-sign lords {lb} and {lg} are mutual friends.")
+        cancels.append(M("bhakoot_ph_friends", a=_P(lb), b=_P(lg)))
     elif pts == 4.0:
-        mitig.append(f"Moon-sign lords {lb} and {lg} are friendly on one side "
-                     "and neutral on the other.")
+        mitig.append(M("bhakoot_ph_half", a=_P(lb), b=_P(lg)))
     f.status = _status(cancels, mitig)
     f.parihara = cancels + mitig
     return f
@@ -189,21 +194,20 @@ def bhakoot_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
 def gana_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
     gb, gg = D.NAK_GANA[b.nakshatra], D.NAK_GANA[g.nakshatra]
     pts = D.GANA_SCORE[gg][gb]
-    f = DoshaFinding("gana", "Gana Dosha", ABSENT)
+    f = DoshaFinding("gana", M("dosha_gana"), ABSENT)
     if pts > 1:
-        f.details.append(f"Ganas {D.GANA_NAMES[gb]} / {D.GANA_NAMES[gg]} are compatible.")
+        f.details.append(M("gana_ok", b=Name("gana", gb), g=Name("gana", gg)))
         return f
-    f.details.append(f"Ganas {D.GANA_NAMES[gb]} (bride) and {D.GANA_NAMES[gg]} "
-                     f"(groom) are a difficult pair (Gana koota {pts:g}/6).")
+    f.details.append(M("gana_bad", b=Name("gana", gb), g=Name("gana", gg), pts=pts))
     lb, lg = D.RASHI_LORD[b.rashi], D.RASHI_LORD[g.rashi]
     maitri = maitri_points(lb, lg)
     cancels, mitig = [], []
     if maitri == 5.0:
-        cancels.append("The Moon-sign lords are the same or mutual friends.")
+        cancels.append(M("gana_ph_lords"))
     elif maitri == 4.0:
-        mitig.append("The Moon-sign lords are friendly.")
+        mitig.append(M("gana_ph_lords_half"))
     if bhakoot_distance(b.rashi, g.rashi) not in D.BAD_BHAKOOT:
-        mitig.append("Bhakoot is favourable.")
+        mitig.append(M("gana_ph_bhakoot"))
     f.status = _status(cancels, mitig)
     f.parihara = cancels + mitig
     return f
@@ -216,8 +220,8 @@ def gana_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
 class MangalPerson:
     references: list[str]
     hits: list[tuple[str, int]]
-    house_exceptions: list[str]
-    cancellations: list[str]
+    house_exceptions: list[Msg]
+    cancellations: list[Msg]
     severity: float
 
     @property
@@ -254,24 +258,23 @@ def analyse_mangal(chart: Chart, lagna_known: bool) -> MangalPerson:
         if house not in D.MANGLIK_HOUSES:
             continue
         if mars in D.MANGLIK_HOUSE_SIGN_EXCEPTIONS.get(house, set()):
-            exceptions.append(f"From {name}: Mars in house {house} in "
-                              f"{D.RASHIS[mars]} is a traditional exception.")
+            exceptions.append(M("mangal_exception", ref=_P(name), house=house,
+                                sign=Name("rashi", mars)))
         else:
             hits.append((name, house))
 
-    cancellations: list[str] = []
+    cancellations: list[Msg] = []
     if hits:
         if mars in D.MARS_OWN_OR_EXALTED:
-            cancellations.append(f"Mars is in {D.RASHIS[mars]}, its "
-                                 f"{D.MARS_OWN_OR_EXALTED[mars]}.")
+            cancellations.append(M("mangal_ph_own", sign=Name("rashi", mars),
+                                   kind=Name("dignity", D.MARS_OWN_OR_EXALTED[mars])))
         rel = (mars - chart.sign("Jupiter")) % 12 + 1
         if rel == 1:
-            cancellations.append("Mars is conjunct Jupiter.")
+            cancellations.append(M("mangal_ph_jup_conj"))
         elif rel in (5, 7, 9):
-            cancellations.append(f"Mars receives Jupiter's aspect "
-                                 f"(house {rel} from Jupiter).")
+            cancellations.append(M("mangal_ph_jup_aspect", rel=rel))
         if mars == chart.moon.rashi:
-            cancellations.append("Mars is conjunct the Moon (Chandra-Mangala yoga).")
+            cancellations.append(M("mangal_ph_moon_conj"))
 
     return MangalPerson(
         references=[n for n, _ in refs], hits=hits,
@@ -279,7 +282,7 @@ def analyse_mangal(chart: Chart, lagna_known: bool) -> MangalPerson:
         severity=sum(weights[n] for n, _ in hits))
 
 
-def saturn_balance(chart: Chart, lagna_known: bool) -> str | None:
+def saturn_balance(chart: Chart, lagna_known: bool) -> Msg | None:
     """Dosha samya: Saturn in a Manglik house of the other partner's chart."""
     if lagna_known and chart.lagna_rashi is not None:
         name, ref = "Lagna", chart.lagna_rashi
@@ -287,7 +290,7 @@ def saturn_balance(chart: Chart, lagna_known: bool) -> str | None:
         name, ref = "Moon", chart.moon.rashi
     h = (chart.sign("Saturn") - ref) % 12 + 1
     if h in D.MANGLIK_HOUSES:
-        return f"Saturn in house {h} from {name}"
+        return M("mangal_ph_saturn", house=h, ref=_P(name))
     return None
 
 
@@ -299,27 +302,27 @@ def mangal_findings(people: dict[str, tuple[str, Chart, bool]],
     for role, other in (("bride", "groom"), ("groom", "bride")):
         name, chart, lagna_known = people[role]
         m, om = analysis[role], analysis[other]
-        f = DoshaFinding(f"mangal_{role}", f"Mangal Dosha: {name}", ABSENT)
-        f.details.append("Checked from: " + ", ".join(m.references) + ".")
+        f = DoshaFinding(f"mangal_{role}", M("dosha_mangal", name=name), ABSENT)
+        f.details.append(M("mangal_checked",
+                           refs=Join([_P(r) for r in m.references])))
         if not lagna_known:
-            f.details.append("Birth time unknown, so the Lagna was not used.")
+            f.details.append(M("mangal_no_lagna"))
         f.details += m.house_exceptions
         if not m.raw:
-            f.details.append("Mars is not in houses 1, 2, 4, 7, 8 or 12 from "
-                             "any reference point (after exceptions).")
+            f.details.append(M("mangal_absent"))
         else:
-            f.details.append("Mars in " + ", ".join(
-                f"house {h} from {n}" for n, h in m.hits)
-                + f" (intensity: {severity_label(m.severity)}).")
+            f.details.append(M(
+                "mangal_hits",
+                hits=Join([M("mangal_hit", house=h, ref=_P(n)) for n, h in m.hits]),
+                sev=Name("severity", severity_label(m.severity))))
             cancels, mitig = list(m.cancellations), []
             if not cancels and om.net:
-                cancels.append("Both partners have Mangal Dosha: mutual "
-                               "cancellation (the most widely applied rule).")
+                cancels.append(M("mangal_ph_mutual"))
             if not cancels:
                 _, ochart, olk = people[other]
                 bal = saturn_balance(ochart, olk)
                 if bal:
-                    mitig.append(f"Partner has {bal} (dosha samya / balancing).")
+                    mitig.append(bal)
             f.status = _status(cancels, mitig)
             f.parihara = cancels + mitig
 
@@ -331,10 +334,7 @@ def mangal_findings(people: dict[str, tuple[str, Chart, bool]],
                                for alt in sw.moon_states}) > 1
             if lagna_varies or moon_varies:
                 f.time_sensitive = True
-                f.details.append("Within the birth-time window this result "
-                                 "changes (the Lagna or Moon moves into a "
-                                 "different sign), so it depends on the exact "
-                                 "birth time.")
+                f.details.append(M("mangal_time_sensitive"))
         out.append(f)
     return out
 
@@ -354,15 +354,11 @@ class Person:
 class MatchResult:
     kootas: list[Koota]
     total: float
-    band: str
+    band: int
     doshas: list[DoshaFinding]
     score_min: float
     score_max: float
-    sensitivity_notes: list[str]
-
-
-def _state_list(p: Person) -> str:
-    return "; ".join(c.moon.describe() for c in p.sweep.moon_states)
+    sensitivity_notes: list[Msg]
 
 
 def match(bride: Person, groom: Person) -> MatchResult:
@@ -370,34 +366,30 @@ def match(bride: Person, groom: Person) -> MatchResult:
     kootas = score_kootas(b, g)
     total = total_score(kootas)
 
-    totals = [total_score(score_kootas(x.moon, y.moon))
-              for x, y in product(bride.sweep.moon_states, groom.sweep.moon_states)]
+    combos = list(product(bride.sweep.moon_states, groom.sweep.moon_states))
+    totals = [total_score(score_kootas(x.moon, y.moon)) for x, y in combos]
 
     doshas = [nadi_dosha(b, g), bhakoot_dosha(b, g), gana_dosha(b, g)]
     # Couple-level doshas are time-sensitive if any alternative Moon state changes them.
     for f in doshas:
         fn = {"nadi": nadi_dosha, "bhakoot": bhakoot_dosha, "gana": gana_dosha}[f.key]
-        statuses = {fn(x.moon, y.moon).status for x, y in
-                    product(bride.sweep.moon_states, groom.sweep.moon_states)}
-        if len(statuses) > 1:
+        if len({fn(x.moon, y.moon).status for x, y in combos}) > 1:
             f.time_sensitive = True
-            f.details.append("This result changes within the birth-time window "
-                             "(a Moon is close to a nakshatra/sign boundary).")
+            f.details.append(M("couple_time_sensitive"))
 
     doshas += mangal_findings(
         {"bride": (bride.name, bride.chart, bride.lagna_known),
          "groom": (groom.name, groom.chart, groom.lagna_known)},
         {"bride": bride.sweep, "groom": groom.sweep})
 
-    notes = []
+    notes: list[Msg] = []
     for p in (bride, groom):
         if len(p.sweep.moon_states) > 1:
-            notes.append(f"{p.name}'s Moon is near a boundary. Within the "
-                         f"birth-time window it could be: {_state_list(p)}.")
+            notes.append(M("note_moon_boundary", name=p.name, states=Join(
+                [c.moon.describe() for c in p.sweep.moon_states], "; ")))
         if p.lagna_known and len(p.sweep.lagna_signs) > 1:
-            signs = ", ".join(D.RASHIS[s] for s in p.sweep.lagna_signs)
-            notes.append(f"{p.name}'s Lagna (ascendant) changes within the "
-                         f"birth-time window: {signs}.")
+            notes.append(M("note_lagna_changes", name=p.name, signs=Join(
+                [Name("rashi", s) for s in p.sweep.lagna_signs])))
 
     return MatchResult(kootas=kootas, total=total, band=D.score_band(total),
                        doshas=doshas, score_min=min(totals),
