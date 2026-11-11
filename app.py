@@ -28,7 +28,7 @@ if st.session_state.get("_code_sig") != _CODE_SIG:
     st.session_state["_code_sig"] = _CODE_SIG
 
 from kundli.engine import ACCURACY_WINDOWS, NAK_SPAN, Chart, calculate_chart, sweep
-from kundli.i18n import LANGUAGES, M, Name, tr
+from kundli.i18n import LANGUAGES, Join, M, Name, tr
 from kundli.manual import nakshatras_in_rashi, padas_in
 from kundli.matching import (ABSENT, CANCELLED, MITIGATED, NOT_CHECKED, Person,
                              match)
@@ -37,7 +37,8 @@ from kundli.places import (Place, all_timezones, local_day_bounds_utc,
 from kundli import kundli_report as KR
 from kundli.charts import south_indian_chart
 from kundli.horoscope import build_horoscope
-from kundli.report import build_facts, koota_quality, moon_text, to_markdown
+from kundli.report import (build_facts, koota_quality, lagna_text, moon_text,
+                           to_markdown)
 
 st.set_page_config(page_title="Kundli Milan", page_icon="🪔", layout="wide")
 
@@ -255,6 +256,28 @@ def resolved_text(form: dict, rt, lang: str) -> str:
             f"= {rt.utc:%Y-%m-%d %H:%M} UTC; {p.latitude:.4f}, {p.longitude:.4f}")
 
 
+@st.cache_data(show_spinner=False, max_entries=500)
+def quick_stars(utc_iso: str, lat: float, lon: float, time_known: bool,
+                day_start_iso: str) -> tuple[list[tuple[int, int, int]], int | None]:
+    """Moon nakshatra/pada/rashi (and Lagna) for the 'Please check' line.
+    With an unknown birth time, every state the Moon passes through that
+    day is listed."""
+    from datetime import datetime as _dt
+    utc = _dt.fromisoformat(utc_iso)
+    chart = calculate_chart(utc, lat, lon, with_lagna=time_known)
+    if time_known:
+        m = chart.moon
+        return [(m.nakshatra, m.pada, m.rashi)], chart.lagna_rashi
+    start = _dt.fromisoformat(day_start_iso)
+    sw = sweep(chart, start, start + timedelta(hours=23, minutes=59), lat, lon,
+               False, step_minutes=5)
+    first = calculate_chart(start, lat, lon, with_lagna=False).moon.lon
+    ordered = sorted(sw.moon_states, key=lambda c: (c.moon.lon - first) % 360)
+    states = list(dict.fromkeys((c.moon.nakshatra, c.moon.pada, c.moon.rashi)
+                                for c in ordered))   # in time order through the day
+    return states, None
+
+
 def show_resolved(form: dict, rt, missing: list[str]) -> None:
     if missing:
         st.caption(t("still_needed", items=", ".join(t(m) for m in missing)))
@@ -262,6 +285,17 @@ def show_resolved(form: dict, rt, missing: list[str]) -> None:
     st.markdown(t("please_check", text=resolved_text(form, rt, LANG)))
     if form["mode"] == "star":
         return
+    p = form["place"]
+    known = form["accuracy"] != "unknown"
+    day_start, _ = local_day_bounds_utc(form["dob"], rt.utc_offset)
+    states, lagna = quick_stars(rt.utc.isoformat(), p.latitude, p.longitude, known,
+                                day_start.isoformat())
+    moons = Join([M("moon_state", nak=Name("nakshatra", n), pada=pd,
+                    rashi=Name("rashi", r)) for n, pd, r in states], "; ")
+    if known:
+        st.markdown(t("resolved_moon", moon=moons, lagna=Name("rashi", lagna)))
+    else:
+        st.markdown(t("resolved_moon_day", states=moons))
     if form["accuracy"] == "unknown":
         st.info(t("unknown_info"))
     for n in rt.notes:
@@ -492,6 +526,15 @@ def show_results(res: dict) -> None:
     if r.score_min != r.score_max:
         c3.metric(t("range_label"), t("range_value", a=r.score_min, b=r.score_max))
     st.progress(min(r.total / 36, 1.0))
+
+    st.subheader(t("birth_stars_header"))
+    stars = [f"| | {t('col_rashi')} | {t('col_nak')} | {t('k_lagna')} |", "|---|---|---|---|"]
+    for role, p in (("bride", bride), ("groom", groom)):
+        m = p.moon
+        pada = t("pada_not_given") if (p.entered and p.entered[2] is None) else str(m.pada)
+        stars.append(f"| **{t(role)}**: {p.name} | {T(Name('rashi', m.rashi))} | "
+                     f"{T(Name('nakshatra', m.nakshatra))} ({pada}) | {lagna_text(p, LANG)} |")
+    st.markdown("\n".join(stars))
 
     st.subheader(t("ashtakoota"))
     rows = [f"| {t('col_koota')} | {t('bride')} | {t('groom')} | {t('col_score')} |",
