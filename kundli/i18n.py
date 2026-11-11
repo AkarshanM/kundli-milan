@@ -424,7 +424,8 @@ STRINGS = {
         "lon": "Longitude (east +)",
         "timezone": "Timezone",
         "place_q": "Place of birth (city or town name only)",
-        "place_ph": "e.g. Mysuru",
+        "place_ph": "e.g. Mysuru, then press Enter",
+        "missing_before_calc": "To continue, please fill in: {items}",
         "place_fail": "Place lookup failed. Check the internet connection, or "
                       "tick 'Enter coordinates manually'.",
         "choose_place": "Choose the exact place",
@@ -723,6 +724,8 @@ STRINGS = {
         "hours": "ಗಂಟೆಗಳು",
         "minutes": "ನಿಮಿಷಗಳು",
         "still_needed": "ಇನ್ನೂ ಬೇಕಾಗಿರುವುದು: {items}",
+        "place_ph": "ಉದಾ. Mysuru, ನಂತರ Enter ಒತ್ತಿ",
+        "missing_before_calc": "ಮುಂದುವರಿಯಲು ದಯವಿಟ್ಟು ಇವುಗಳನ್ನು ತುಂಬಿ: {items}",
         "need_name": "ಹೆಸರು",
         "need_dob": "ಜನ್ಮ ದಿನಾಂಕ",
         "need_time": "ಜನ್ಮ ಸಮಯ (ಗಂಟೆ, ನಿಮಿಷ ಮತ್ತು AM/PM)",

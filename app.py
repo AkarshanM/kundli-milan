@@ -323,6 +323,14 @@ def chart_table(person: Person) -> str:
     return "\n".join(rows)
 
 
+def missing_hint(missing_by_role: dict[str, list[str]]) -> None:
+    """Say plainly, next to the (disabled) button, what is still needed."""
+    parts = [f"**{t(role)}**: " + ", ".join(t(m) for m in miss)
+             for role, miss in missing_by_role.items() if miss]
+    if parts:
+        st.warning(t("missing_before_calc", items="; ".join(parts)))
+
+
 def ai_section(make_facts, kind: str, state_key: str):
     """Optional AI write-up; only shown when an API key is configured."""
     api_key = secret("ANTHROPIC_API_KEY")
@@ -556,6 +564,7 @@ if TASK == "kundli":
         k_rt, k_missing = resolve(k_form)
         show_resolved(k_form, k_rt, k_missing)
     k_sig = signature(k_form)
+    missing_hint({"person": k_missing})
     if st.button(t("kundli_button"), type="primary", disabled=bool(k_missing)):
         with st.spinner(t("calculating")):
             person = build_person(k_form, k_rt)
@@ -588,6 +597,7 @@ with col_g:
 
 st.write("")
 current_sig = (signature(bride_form), signature(groom_form))
+missing_hint({"bride": b_missing, "groom": g_missing})
 if st.button(t("calc_button"), type="primary", disabled=bool(b_missing or g_missing)):
     with st.spinner(t("calculating")):
         bride = build_person(bride_form, bride_rt)
