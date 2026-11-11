@@ -15,17 +15,26 @@ def koota_quality(score: float, mx: float) -> Name:
 
 
 def lagna_text(p: Person, lang: str) -> str:
-    if p.lagna_known and p.chart.lagna_rashi is not None:
+    if p.chart is not None and p.lagna_known and p.chart.lagna_rashi is not None:
         return tr(Name("rashi", p.chart.lagna_rashi), lang)
     return tr(M("lagna_unknown"), lang)
 
 
+def moon_text(p: Person, lang: str) -> str:
+    """Moon description; for directly entered data, don't invent a pada."""
+    if p.entered and p.entered[2] is None:
+        return tr(M("moon_state_no_pada", nak=Name("nakshatra", p.moon.nakshatra),
+                    rashi=Name("rashi", p.moon.rashi)), lang)
+    return tr(p.moon.describe(), lang)
+
+
 def chart_summary(p: Person, lang: str = "en") -> dict:
-    m = p.chart.moon
+    m = p.moon
     return {
         "name": p.name,
+        "entered_as": "rashi and nakshatra" if p.chart is None else "birth details",
         "moon_nakshatra": tr(Name("nakshatra", m.nakshatra), lang),
-        "moon_pada": m.pada,
+        "moon_pada": None if (p.entered and p.entered[2] is None) else m.pada,
         "moon_sign": tr(Name("rashi", m.rashi), lang),
         "lagna": lagna_text(p, lang),
         "gana": tr(Name("gana", D.NAK_GANA[m.nakshatra]), lang),
@@ -79,7 +88,7 @@ def to_markdown(bride: Person, groom: Person, r: MatchResult,
     lines += ["", "## " + t("md_birth_data"), ""]
     for role, p in (("bride", bride), ("groom", groom)):
         lines.append(f"- **{t(role)}: {p.name}**: {resolved.get(role, '')}")
-        lines.append("  - " + t("md_moon_line", moon=p.chart.moon.describe(),
+        lines.append("  - " + t("md_moon_line", moon=moon_text(p, lang),
                                 lagna=lagna_text(p, lang)))
     lines += ["", "## " + t("ashtakoota"), "",
               f"| {t('col_koota')} | {t('bride')} | {t('groom')} | {t('col_score')} |",

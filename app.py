@@ -11,10 +11,12 @@ import streamlit as st
 
 from kundli.engine import ACCURACY_WINDOWS, NAK_SPAN, Chart, calculate_chart, sweep
 from kundli.i18n import LANGUAGES, M, Name, tr
-from kundli.matching import ABSENT, CANCELLED, MITIGATED, Person, match
+from kundli.manual import nakshatras_in_rashi, padas_in
+from kundli.matching import (ABSENT, CANCELLED, MITIGATED, NOT_CHECKED, Person,
+                             match)
 from kundli.places import (Place, all_timezones, local_day_bounds_utc,
                            resolve_local_time, search_places)
-from kundli.report import build_facts, koota_quality, to_markdown
+from kundli.report import build_facts, koota_quality, moon_text, to_markdown
 
 st.set_page_config(page_title="Kundli Milan", page_icon="🪔", layout="wide")
 
@@ -81,9 +83,37 @@ def translated_select(label: str, options: list, fmt, key: str,
 
 
 # ------------------------------------------------------------------ inputs
+def star_form(name: str, key: str) -> dict:
+    """Rashi + nakshatra (+ optional pada) entry."""
+    rashi = translated_select(t("rashi_q"), list(range(12)),
+                              lambda r: T(Name("rashi", r)), f"{key}_rashi")
+    nak = pada = None
+    if rashi is not None:
+        naks = nakshatras_in_rashi(rashi)
+        nak = translated_select(t("nak_q"), naks,
+                                lambda n: T(Name("nakshatra", n)),
+                                f"{key}_nak_{rashi}")
+        if nak is not None:
+            pada = translated_select(t("pada_q"), [0] + padas_in(rashi, nak),
+                                     lambda p: t("pada_value", p=p) if p else t("pada_unknown"),
+                                     f"{key}_pada_{rashi}_{nak}", default=0)
+    manglik = translated_select(t("manglik_q"), ["unknown", "yes", "no"],
+                                lambda m: t(f"manglik_{m}"), f"{key}_manglik",
+                                default="unknown")
+    st.caption(t("star_info"))
+    return {"mode": "star", "name": name.strip(), "rashi": rashi, "nak": nak,
+            "pada": pada or None,
+            "manglik": {"yes": True, "no": False}.get(manglik)}
+
+
 def person_form(role: str, key: str) -> dict:
     st.subheader(t(role))
     name = st.text_input(t("full_name"), key=f"{key}_name")
+    mode = translated_select(t("mode_label"), ["birth", "star"],
+                             lambda m: t(f"mode_{m}"), f"{key}_mode",
+                             default="birth")
+    if mode == "star":
+        return star_form(name, key)
     st.markdown(t("dob"))
     c1, c2, c3 = st.columns(3)
     day = c1.selectbox(t("day"), list(range(1, 32)), index=None,
@@ -158,14 +188,20 @@ def person_form(role: str, key: str) -> dict:
         om = c3.number_input(t("minutes"), 0, 59, 30, key=f"{key}_om")
         override = (1 if sign == "+" else -1) * timedelta(hours=oh, minutes=om)
 
-    return {"name": name.strip(), "dob": dob, "accuracy": accuracy, "time": tm,
-            "place": place, "override": override}
+    return {"mode": "birth", "name": name.strip(), "dob": dob,
+            "accuracy": accuracy, "time": tm, "place": place, "override": override}
 
 
 def resolve(form: dict):
     missing = []
     if not form["name"]:
         missing.append("need_name")
+    if form["mode"] == "star":
+        if form["rashi"] is None:
+            missing.append("need_rashi")
+        elif form["nak"] is None:
+            missing.append("need_nak")
+        return None, missing
     if form["dob"] is None:
         missing.append("need_dob")
     if form["accuracy"] != "unknown" and form["time"] is None:
@@ -180,6 +216,11 @@ def resolve(form: dict):
 
 
 def resolved_text(form: dict, rt, lang: str) -> str:
+    if form["mode"] == "star":
+        pada = (tr(M("pada_value", p=form["pada"]), lang) if form["pada"]
+                else tr(M("pada_not_given"), lang))
+        return tr(M("entered_text", rashi=Name("rashi", form["rashi"]),
+                    nak=Name("nakshatra", form["nak"]), pada=pada), lang)
     p = form["place"]
     d = f"{form['dob']:%d}-{tr(Name('month', form['dob'].month - 1), lang)}-{form['dob']:%Y}"
     when = (tr(M("when_unknown", date=d), lang) if form["accuracy"] == "unknown"
@@ -194,6 +235,8 @@ def show_resolved(form: dict, rt, missing: list[str]) -> None:
         st.caption(t("still_needed", items=", ".join(t(m) for m in missing)))
         return
     st.markdown(t("please_check", text=resolved_text(form, rt, LANG)))
+    if form["mode"] == "star":
+        return
     if form["accuracy"] == "unknown":
         st.info(t("unknown_info"))
     for n in rt.notes:
@@ -201,6 +244,9 @@ def show_resolved(form: dict, rt, missing: list[str]) -> None:
 
 
 def build_person(form: dict, rt) -> Person:
+    if form["mode"] == "star":
+        return Person.from_rashi_nakshatra(form["name"], form["rashi"], form["nak"],
+                                           form["pada"], form["manglik"])
     p = form["place"]
     lagna_known = form["accuracy"] != "unknown"
     chart = calculate_chart(rt.utc, p.latitude, p.longitude, with_lagna=lagna_known)
@@ -211,11 +257,11 @@ def build_person(form: dict, rt) -> Person:
     else:
         start, end = local_day_bounds_utc(form["dob"], rt.utc_offset)
         sw = sweep(chart, start, end, p.latitude, p.longitude, False, step_minutes=5)
-    return Person(form["name"], chart, sw, lagna_known)
+    return Person.from_chart(form["name"], chart, sw, lagna_known)
 
 
 def signature(form: dict) -> tuple:
-    return tuple(form[k] for k in ("name", "dob", "accuracy", "time", "place", "override"))
+    return tuple(sorted(form.items()))
 
 
 # ----------------------------------------------------------------- display
@@ -291,8 +337,8 @@ def show_results(res: dict) -> None:
         if f.parihara:
             body += "\n\n" + t("parihara_applied") + "\n" + "\n".join(
                 f"- {T(p)}" for p in f.parihara)
-        {ABSENT: st.success, CANCELLED: st.info,
-         MITIGATED: st.warning}.get(f.status, st.error)(body)
+        {ABSENT: st.success, CANCELLED: st.info, MITIGATED: st.warning,
+         NOT_CHECKED: st.info}.get(f.status, st.error)(body)
 
     if r.sensitivity_notes:
         st.subheader(t("sensitivity_header"))
@@ -304,7 +350,10 @@ def show_results(res: dict) -> None:
     for col, role, p in ((c1, "bride", bride), (c2, "groom", groom)):
         with col, st.expander(t("chart_of", name=p.name), expanded=False):
             st.caption(resolved[role])
-            st.markdown(t("moon_label", state=p.chart.moon.describe()))
+            st.markdown(t("moon_label", state=moon_text(p, LANG)))
+            if p.chart is None:
+                st.caption(t("chart_entered"))
+                continue
             st.markdown(chart_table(p))
             st.caption(t("chart_caption", aya=dms(p.chart.ayanamsa),
                          eph=p.chart.ephemeris))

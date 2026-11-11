@@ -37,7 +37,7 @@ def _person(name, when, lat, lon, lagna=True):
     ch = calculate_chart(when, lat, lon, lagna)
     sw = sweep(ch, when - timedelta(hours=12), when + timedelta(hours=12),
                lat, lon, lagna, step_minutes=30)
-    return Person(name, ch, sw, lagna)
+    return Person.from_chart(name, ch, sw, lagna)
 
 
 @pytest.mark.parametrize("lang", ["en", "kn"])

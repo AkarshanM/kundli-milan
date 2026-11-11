@@ -5,6 +5,7 @@ A personal Ashtakoota (36 Guna) marriage-matching web app for you and your frien
 - **Calculations:** Swiss Ephemeris (pyswisseph), Lahiri ayanamsa, whole-sign houses
 - **Covers:** all 8 kootas, Nadi / Bhakoot / Gana / Mangal Dosha with cancellation (parihara) rules, and a birth-time sensitivity check that warns when a Moon or Lagna near a boundary could change the result
 - **Place lookup:** free Open-Meteo geocoding (no key), with historical timezone offsets from the IANA database and a manual override
+- **Two ways to enter each person:** full birth date, time and place (most accurate), or just **rashi + nakshatra** (+ pada if known) for people who already know their star. The 36-point score is identical either way; Mangal Dosha then uses a "Manglik: yes / no / don't know" answer, since it needs Mars's position
 - **Languages:** English and ಕನ್ನಡ (Kannada), switchable at the top right. All translations live in [kundli/i18n.py](kundli/i18n.py); add a language by adding one entry to `NAMES` and one to `STRINGS`
 - **AI write-up:** optional, and off unless you add an Anthropic API key
 

@@ -123,6 +123,7 @@ def total_score(kootas: list[Koota]) -> float:
 # ---------------------------------------------------------------- doshas
 
 ABSENT, PRESENT, MITIGATED, CANCELLED = "Absent", "Present", "Mitigated", "Cancelled"
+NOT_CHECKED = "NotChecked"
 
 
 @dataclass
@@ -294,18 +295,45 @@ def saturn_balance(chart: Chart, lagna_known: bool) -> Msg | None:
     return None
 
 
-def mangal_findings(people: dict[str, tuple[str, Chart, bool]],
-                    sweeps: dict[str, Sweep]) -> list[DoshaFinding]:
-    """people: role -> (display name, chart, lagna_known)."""
-    analysis = {role: analyse_mangal(ch, lk) for role, (_, ch, lk) in people.items()}
+def mangal_findings(people: dict[str, "Person"]) -> list[DoshaFinding]:
+    """people: role -> Person. A person entered as rashi/nakshatra has no
+    chart; their Manglik status is whatever was declared (or unknown)."""
+    analysis = {role: analyse_mangal(p.chart, p.lagna_known) if p.chart else None
+                for role, p in people.items()}
+
+    def net(role: str) -> bool | None:
+        a = analysis[role]
+        return a.net if a else people[role].manglik_declared
+
     out = []
     for role, other in (("bride", "groom"), ("groom", "bride")):
-        name, chart, lagna_known = people[role]
-        m, om = analysis[role], analysis[other]
-        f = DoshaFinding(f"mangal_{role}", M("dosha_mangal", name=name), ABSENT)
+        p, op = people[role], people[other]
+        m = analysis[role]
+        f = DoshaFinding(f"mangal_{role}", M("dosha_mangal", name=p.name), ABSENT)
+
+        if m is None:   # entered as rashi / nakshatra: nothing to calculate
+            if p.manglik_declared is None:
+                f.status = NOT_CHECKED
+                f.details.append(M("mangal_not_checked"))
+            elif not p.manglik_declared:
+                f.details.append(M("mangal_declared_no"))
+            else:
+                f.details.append(M("mangal_declared_yes"))
+                cancels, mitig = [], []
+                if net(other):
+                    cancels.append(M("mangal_ph_mutual"))
+                elif op.chart is not None:
+                    bal = saturn_balance(op.chart, op.lagna_known)
+                    if bal:
+                        mitig.append(bal)
+                f.status = _status(cancels, mitig)
+                f.parihara = cancels + mitig
+            out.append(f)
+            continue
+
         f.details.append(M("mangal_checked",
                            refs=Join([_P(r) for r in m.references])))
-        if not lagna_known:
+        if not p.lagna_known:
             f.details.append(M("mangal_no_lagna"))
         f.details += m.house_exceptions
         if not m.raw:
@@ -316,21 +344,20 @@ def mangal_findings(people: dict[str, tuple[str, Chart, bool]],
                 hits=Join([M("mangal_hit", house=h, ref=_P(n)) for n, h in m.hits]),
                 sev=Name("severity", severity_label(m.severity))))
             cancels, mitig = list(m.cancellations), []
-            if not cancels and om.net:
+            if not cancels and net(other):
                 cancels.append(M("mangal_ph_mutual"))
-            if not cancels:
-                _, ochart, olk = people[other]
-                bal = saturn_balance(ochart, olk)
+            if not cancels and op.chart is not None:
+                bal = saturn_balance(op.chart, op.lagna_known)
                 if bal:
                     mitig.append(bal)
             f.status = _status(cancels, mitig)
             f.parihara = cancels + mitig
 
-        sw = sweeps.get(role)
+        sw = p.sweep
         if sw:
-            lagna_varies = (lagna_known and len(
+            lagna_varies = (p.lagna_known and len(
                 {h in D.MANGLIK_HOUSES for h in sw.mars_houses_from_lagna}) > 1)
-            moon_varies = len({analyse_mangal(alt, lagna_known).net
+            moon_varies = len({analyse_mangal(alt, p.lagna_known).net
                                for alt in sw.moon_states}) > 1
             if lagna_varies or moon_varies:
                 f.time_sensitive = True
@@ -344,10 +371,33 @@ def mangal_findings(people: dict[str, tuple[str, Chart, bool]],
 
 @dataclass
 class Person:
+    """Either calculated from birth details (chart + sweep) or entered
+    directly as rashi / nakshatra (moon_states only)."""
     name: str
-    chart: Chart
-    sweep: Sweep
-    lagna_known: bool
+    moon_states: list[MoonPos]              # first item is the nominal position
+    chart: Chart | None = None
+    sweep: Sweep | None = None
+    lagna_known: bool = False
+    manglik_declared: bool | None = None    # only for rashi/nakshatra entry
+    entered: tuple | None = None            # (rashi, nakshatra, pada|None)
+
+    @property
+    def moon(self) -> MoonPos:
+        return self.moon_states[0]
+
+    @classmethod
+    def from_chart(cls, name: str, chart: Chart, sweep: Sweep,
+                   lagna_known: bool) -> "Person":
+        return cls(name, [c.moon for c in sweep.moon_states], chart, sweep,
+                   lagna_known)
+
+    @classmethod
+    def from_rashi_nakshatra(cls, name: str, rashi: int, nakshatra: int,
+                             pada: int | None,
+                             manglik: bool | None) -> "Person":
+        from .manual import moon_states_for
+        return cls(name, moon_states_for(rashi, nakshatra, pada),
+                   manglik_declared=manglik, entered=(rashi, nakshatra, pada))
 
 
 @dataclass
@@ -362,31 +412,36 @@ class MatchResult:
 
 
 def match(bride: Person, groom: Person) -> MatchResult:
-    b, g = bride.chart.moon, groom.chart.moon
+    b, g = bride.moon, groom.moon
     kootas = score_kootas(b, g)
     total = total_score(kootas)
 
-    combos = list(product(bride.sweep.moon_states, groom.sweep.moon_states))
-    totals = [total_score(score_kootas(x.moon, y.moon)) for x, y in combos]
+    combos = list(product(bride.moon_states, groom.moon_states))
+    totals = [total_score(score_kootas(x, y)) for x, y in combos]
 
     doshas = [nadi_dosha(b, g), bhakoot_dosha(b, g), gana_dosha(b, g)]
-    # Couple-level doshas are time-sensitive if any alternative Moon state changes them.
+    # Couple-level doshas are sensitive if any alternative Moon state changes them.
     for f in doshas:
         fn = {"nadi": nadi_dosha, "bhakoot": bhakoot_dosha, "gana": gana_dosha}[f.key]
-        if len({fn(x.moon, y.moon).status for x, y in combos}) > 1:
+        if len({fn(x, y).status for x, y in combos}) > 1:
             f.time_sensitive = True
             f.details.append(M("couple_time_sensitive"))
 
-    doshas += mangal_findings(
-        {"bride": (bride.name, bride.chart, bride.lagna_known),
-         "groom": (groom.name, groom.chart, groom.lagna_known)},
-        {"bride": bride.sweep, "groom": groom.sweep})
+    doshas += mangal_findings({"bride": bride, "groom": groom})
 
     notes: list[Msg] = []
     for p in (bride, groom):
-        if len(p.sweep.moon_states) > 1:
+        if p.chart is None:
+            # Entered directly: only flag what the user didn't pin down
+            # beyond the pada (e.g. which half of Dhanu / Makara for Vashya).
+            if len({(m.nakshatra, m.rashi, m.vashya) for m in p.moon_states}) > 1:
+                notes.append(M("note_manual_uncertain", name=p.name, states=Join(
+                    [Name("vashya", v) for v in
+                     dict.fromkeys(m.vashya for m in p.moon_states)], " / ")))
+            continue
+        if len(p.moon_states) > 1:
             notes.append(M("note_moon_boundary", name=p.name, states=Join(
-                [c.moon.describe() for c in p.sweep.moon_states], "; ")))
+                [m.describe() for m in p.moon_states], "; ")))
         if p.lagna_known and len(p.sweep.lagna_signs) > 1:
             notes.append(M("note_lagna_changes", name=p.name, signs=Join(
                 [Name("rashi", s) for s in p.sweep.lagna_signs])))

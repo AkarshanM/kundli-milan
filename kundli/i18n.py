@@ -71,7 +71,8 @@ NAMES = {
         "rel": {"friend": "friend", "neutral": "neutral", "enemy": "enemy",
                 "same": "same"},
         "status": {"Absent": "Absent", "Present": "Present",
-                   "Mitigated": "Mitigated", "Cancelled": "Cancelled"},
+                   "Mitigated": "Mitigated", "Cancelled": "Cancelled",
+                   "NotChecked": "Not checked"},
         "severity": {"none": "none", "mild": "mild", "moderate": "moderate",
                      "strong": "strong"},
         "band": ["Below 18: traditionally not recommended",
@@ -121,7 +122,8 @@ NAMES = {
                 "same": "ಒಂದೇ"},
         "status": {"Absent": "ಇಲ್ಲ", "Present": "ಇದೆ",
                    "Mitigated": "ಭಾಗಶಃ ಪರಿಹಾರ",
-                   "Cancelled": "ಪರಿಹಾರವಾಗಿದೆ"},
+                   "Cancelled": "ಪರಿಹಾರವಾಗಿದೆ",
+                   "NotChecked": "ಪರಿಶೀಲಿಸಿಲ್ಲ"},
         "severity": {"none": "ಇಲ್ಲ", "mild": "ಸೌಮ್ಯ", "moderate": "ಮಧ್ಯಮ",
                      "strong": "ತೀವ್ರ"},
         "band": ["18ಕ್ಕಿಂತ ಕಡಿಮೆ: ಸಾಂಪ್ರದಾಯಿಕವಾಗಿ ಶಿಫಾರಸು ಮಾಡುವುದಿಲ್ಲ",
@@ -198,9 +200,41 @@ STRINGS = {
                                  "changes (the Lagna or Moon moves into a "
                                  "different sign), so it depends on the exact "
                                  "birth time.",
-        "couple_time_sensitive": "This result changes within the birth-time "
-                                 "window (a Moon is close to a nakshatra/sign "
-                                 "boundary).",
+        "couple_time_sensitive": "This result can change with details that "
+                                 "weren't given exactly (birth time or pada).",
+        "moon_state_no_pada": "{nak} (pada not given), {rashi}",
+        "mangal_not_checked": "Not checked: this needs birth date, time and "
+                              "place, or tell the app whether this person "
+                              "is Manglik.",
+        "mangal_declared_yes": "Marked as Manglik in the details entered "
+                               "(not calculated here).",
+        "mangal_declared_no": "Marked as not Manglik in the details entered "
+                              "(not calculated here).",
+        "note_manual_uncertain": "{name}: Vashya depends on the exact Moon "
+                                 "degree, which wasn't given. It could be "
+                                 "{states}.",
+        # ---- rashi / nakshatra entry
+        "mode_label": "How do you want to enter the details?",
+        "mode_birth": "Birth date, time and place (most accurate)",
+        "mode_star": "Rashi and nakshatra (if already known)",
+        "rashi_q": "Rashi (Moon sign)",
+        "nak_q": "Nakshatra (birth star)",
+        "pada_q": "Pada",
+        "pada_unknown": "Don't know",
+        "pada_value": "Pada {p}",
+        "manglik_q": "Mangal (Kuja) Dosha, if known from the horoscope",
+        "manglik_unknown": "Don't know",
+        "manglik_yes": "Yes, Manglik",
+        "manglik_no": "No",
+        "star_info": "Rashi and nakshatra are enough for the 36-point "
+                     "Ashtakoota score. Mangal Dosha needs the position of "
+                     "Mars, so it uses the answer above (or is skipped).",
+        "need_rashi": "rashi",
+        "need_nak": "nakshatra",
+        "entered_text": "Entered directly: {rashi}, {nak}, {pada}",
+        "pada_not_given": "pada not given",
+        "chart_entered": "Entered as rashi and nakshatra, so planetary "
+                         "positions aren't available.",
         "note_moon_boundary": "{name}'s Moon is near a boundary. Within the "
                               "birth-time window it could be: {states}.",
         "note_lagna_changes": "{name}'s Lagna (ascendant) changes within the "
@@ -301,7 +335,7 @@ STRINGS = {
                            "match** again to update the results.",
         "score_metric": "Guna Milan score",
         "band_label": "Band",
-        "range_label": "Range if the birth time is slightly off",
+        "range_label": "Possible range (birth time / pada not exact)",
         "range_value": "{a} to {b}",
         "ashtakoota": "Ashtakoota",
         "col_koota": "Koota",
@@ -311,9 +345,9 @@ STRINGS = {
         "doshas_caption": "A cancellation (parihara) doesn't change the "
                           "36-point score; it changes whether the dosha is "
                           "traditionally a concern.",
-        "depends_time": "⏱️ *depends on exact birth time*",
+        "depends_time": "⏱️ *depends on exact birth time / pada*",
         "parihara_applied": "*Parihara (cancellation) applied:*",
-        "sensitivity_header": "Birth-time sensitivity",
+        "sensitivity_header": "Sensitivity to birth time / pada",
         "chart_details": "Chart details",
         "chart_of": "{name}'s chart",
         "moon_label": "**Moon:** {state}",
@@ -403,8 +437,40 @@ STRINGS = {
         "mangal_time_sensitive": "ಜನ್ಮ ಸಮಯದ ಅಂತರದೊಳಗೆ ಈ ಫಲಿತಾಂಶ ಬದಲಾಗುತ್ತದೆ "
                                  "(ಲಗ್ನ ಅಥವಾ ಚಂದ್ರ ಬೇರೆ ರಾಶಿಗೆ ಹೋಗುತ್ತದೆ), "
                                  "ಆದ್ದರಿಂದ ಇದು ನಿಖರ ಜನ್ಮ ಸಮಯವನ್ನು ಅವಲಂಬಿಸಿದೆ.",
-        "couple_time_sensitive": "ಜನ್ಮ ಸಮಯದ ಅಂತರದೊಳಗೆ ಈ ಫಲಿತಾಂಶ ಬದಲಾಗುತ್ತದೆ "
-                                 "(ಚಂದ್ರ ನಕ್ಷತ್ರ/ರಾಶಿ ಗಡಿಯ ಹತ್ತಿರವಿದೆ).",
+        "couple_time_sensitive": "ನಿಖರವಾಗಿ ನೀಡದ ವಿವರಗಳಿಂದ (ಜನ್ಮ ಸಮಯ ಅಥವಾ "
+                                 "ಪಾದ) ಈ ಫಲಿತಾಂಶ ಬದಲಾಗಬಹುದು.",
+        "moon_state_no_pada": "{nak} (ಪಾದ ನೀಡಿಲ್ಲ), {rashi}",
+        "mangal_not_checked": "ಪರಿಶೀಲಿಸಿಲ್ಲ: ಇದಕ್ಕೆ ಜನ್ಮ ದಿನಾಂಕ, ಸಮಯ ಮತ್ತು "
+                              "ಸ್ಥಳ ಬೇಕು, ಅಥವಾ ಈ ವ್ಯಕ್ತಿಗೆ ಕುಜ ದೋಷ ಇದೆಯೇ "
+                              "ಎಂದು ತಿಳಿಸಿ.",
+        "mangal_declared_yes": "ನಮೂದಿಸಿದ ವಿವರಗಳಲ್ಲಿ ಕುಜ ದೋಷ ಇದೆ ಎಂದು "
+                               "ಗುರುತಿಸಲಾಗಿದೆ (ಇಲ್ಲಿ ಲೆಕ್ಕಹಾಕಿಲ್ಲ).",
+        "mangal_declared_no": "ನಮೂದಿಸಿದ ವಿವರಗಳಲ್ಲಿ ಕುಜ ದೋಷ ಇಲ್ಲ ಎಂದು "
+                              "ಗುರುತಿಸಲಾಗಿದೆ (ಇಲ್ಲಿ ಲೆಕ್ಕಹಾಕಿಲ್ಲ).",
+        "note_manual_uncertain": "{name}: ವಶ್ಯವು ಚಂದ್ರನ ನಿಖರ ಅಂಶವನ್ನು "
+                                 "ಅವಲಂಬಿಸಿದೆ, ಅದನ್ನು ನೀಡಿಲ್ಲ. ಅದು {states} "
+                                 "ಆಗಿರಬಹುದು.",
+        "mode_label": "ವಿವರಗಳನ್ನು ಹೇಗೆ ನಮೂದಿಸಲು ಬಯಸುತ್ತೀರಿ?",
+        "mode_birth": "ಜನ್ಮ ದಿನಾಂಕ, ಸಮಯ ಮತ್ತು ಸ್ಥಳ (ಅತ್ಯಂತ ನಿಖರ)",
+        "mode_star": "ರಾಶಿ ಮತ್ತು ನಕ್ಷತ್ರ (ಈಗಾಗಲೇ ತಿಳಿದಿದ್ದರೆ)",
+        "rashi_q": "ರಾಶಿ (ಚಂದ್ರ ರಾಶಿ)",
+        "nak_q": "ನಕ್ಷತ್ರ (ಜನ್ಮ ನಕ್ಷತ್ರ)",
+        "pada_q": "ಪಾದ",
+        "pada_unknown": "ಗೊತ್ತಿಲ್ಲ",
+        "pada_value": "{p}ನೇ ಪಾದ",
+        "manglik_q": "ಕುಜ ದೋಷ (ಜಾತಕದಲ್ಲಿ ತಿಳಿದಿದ್ದರೆ)",
+        "manglik_unknown": "ಗೊತ್ತಿಲ್ಲ",
+        "manglik_yes": "ಹೌದು, ಕುಜ ದೋಷ ಇದೆ",
+        "manglik_no": "ಇಲ್ಲ",
+        "star_info": "36 ಅಂಕಗಳ ಅಷ್ಟಕೂಟಕ್ಕೆ ರಾಶಿ ಮತ್ತು ನಕ್ಷತ್ರ ಸಾಕು. ಕುಜ "
+                     "ದೋಷಕ್ಕೆ ಕುಜನ ಸ್ಥಾನ ಬೇಕು, ಆದ್ದರಿಂದ ಮೇಲಿನ ಉತ್ತರವನ್ನು "
+                     "ಬಳಸಲಾಗುತ್ತದೆ (ಅಥವಾ ಬಿಡಲಾಗುತ್ತದೆ).",
+        "need_rashi": "ರಾಶಿ",
+        "need_nak": "ನಕ್ಷತ್ರ",
+        "entered_text": "ನೇರವಾಗಿ ನಮೂದಿಸಲಾಗಿದೆ: {rashi}, {nak}, {pada}",
+        "pada_not_given": "ಪಾದ ನೀಡಿಲ್ಲ",
+        "chart_entered": "ರಾಶಿ ಮತ್ತು ನಕ್ಷತ್ರವಾಗಿ ನಮೂದಿಸಲಾಗಿದೆ, ಆದ್ದರಿಂದ ಗ್ರಹ "
+                         "ಸ್ಥಾನಗಳು ಲಭ್ಯವಿಲ್ಲ.",
         "note_moon_boundary": "{name} ಅವರ ಚಂದ್ರ ಗಡಿಯ ಹತ್ತಿರವಿದೆ. ಜನ್ಮ ಸಮಯದ "
                               "ಅಂತರದೊಳಗೆ ಅದು ಹೀಗಿರಬಹುದು: {states}.",
         "note_lagna_changes": "{name} ಅವರ ಲಗ್ನ ಜನ್ಮ ಸಮಯದ ಅಂತರದೊಳಗೆ "
@@ -497,7 +563,7 @@ STRINGS = {
                            "ಲೆಕ್ಕಹಾಕಿ** ಮತ್ತೆ ಒತ್ತಿ.",
         "score_metric": "ಗುಣ ಮಿಲನ ಅಂಕ",
         "band_label": "ಶ್ರೇಣಿ",
-        "range_label": "ಜನ್ಮ ಸಮಯ ಸ್ವಲ್ಪ ವ್ಯತ್ಯಾಸವಾದರೆ ಅಂಕಗಳ ವ್ಯಾಪ್ತಿ",
+        "range_label": "ಸಾಧ್ಯವಿರುವ ಅಂಕಗಳ ವ್ಯಾಪ್ತಿ (ಜನ್ಮ ಸಮಯ / ಪಾದ ನಿಖರವಲ್ಲದಿದ್ದರೆ)",
         "range_value": "{a} ರಿಂದ {b}",
         "ashtakoota": "ಅಷ್ಟಕೂಟ",
         "col_koota": "ಕೂಟ",
@@ -507,9 +573,9 @@ STRINGS = {
         "doshas_caption": "ಪರಿಹಾರವು 36 ಅಂಕಗಳನ್ನು ಬದಲಿಸುವುದಿಲ್ಲ; ದೋಷವನ್ನು "
                           "ಸಾಂಪ್ರದಾಯಿಕವಾಗಿ ಕಾಳಜಿಯೆಂದು ಪರಿಗಣಿಸಬೇಕೇ ಎಂಬುದನ್ನು "
                           "ಮಾತ್ರ ಬದಲಿಸುತ್ತದೆ.",
-        "depends_time": "⏱️ *ನಿಖರ ಜನ್ಮ ಸಮಯವನ್ನು ಅವಲಂಬಿಸಿದೆ*",
+        "depends_time": "⏱️ *ನಿಖರ ಜನ್ಮ ಸಮಯ / ಪಾದವನ್ನು ಅವಲಂಬಿಸಿದೆ*",
         "parihara_applied": "*ಅನ್ವಯಿಸಿದ ಪರಿಹಾರ:*",
-        "sensitivity_header": "ಜನ್ಮ ಸಮಯದ ಸೂಕ್ಷ್ಮತೆ",
+        "sensitivity_header": "ಜನ್ಮ ಸಮಯ / ಪಾದದ ಸೂಕ್ಷ್ಮತೆ",
         "chart_details": "ಜಾತಕದ ವಿವರಗಳು",
         "chart_of": "{name} ಅವರ ಜಾತಕ",
         "moon_label": "**ಚಂದ್ರ:** {state}",
