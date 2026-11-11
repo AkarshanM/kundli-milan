@@ -37,6 +37,8 @@ You need a free **GitHub** account. This is a one-time setup of about 15 minutes
 
 Share that link and the password with your friends. It works on phones too.
 
+**After pushing an update:** if the app shows an `ImportError`, open https://share.streamlit.io, click **⋮** next to the app and choose **Reboot**. Streamlit sometimes keeps the old version of the `kundli` modules in memory.
+
 **Good to know:** free apps go to sleep after a few days without visitors. The next visitor sees a "wake up" button, and the app is back in about 30 seconds.
 
 ---
