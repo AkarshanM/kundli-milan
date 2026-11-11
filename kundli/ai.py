@@ -28,18 +28,31 @@ You receive a JSON fact sheet produced by a Swiss Ephemeris calculation engine. 
 - Write in {language}. Use Markdown headings. Keep it under 700 words."""
 
 
+KUNDLI_PROMPT = """You write warm, balanced explanations of an individual Vedic horoscope (kundli) for friends and family.
+
+You receive a JSON fact sheet produced by a Swiss Ephemeris calculation engine. Rules:
+- Use ONLY the values in the fact sheet. Never recompute, change or invent any sign, house, nakshatra, dasha, date or dosha status.
+- Structure: overview (Lagna, Moon sign and nakshatra); notable planetary placements (dignities, retrogrades, house themes); panchanga and avakahada in brief; doshas with their status and cancellations exactly as given; the current Vimshottari period and its general themes; Sade Sati status.
+- Tone: kind, practical and never fatalistic. Describe tendencies, not certainties. Do not predict death, illness, accidents, divorce or financial ruin.
+- Do not prescribe gemstones, costly rituals or pujas. You may suggest discussing questions with a trusted family astrologer.
+- End with one sentence noting that a kundli describes tendencies and that choices and effort shape outcomes.
+- Write in {language}. Use Markdown headings. Keep it under 800 words."""
+
+
 class AIError(Exception):
     pass
 
 
 def generate_interpretation(facts: dict, api_key: str, model: str = DEFAULT_MODEL,
-                            language: str = "English") -> tuple[str, list[str]]:
-    """Returns (markdown_text, warnings)."""
+                            language: str = "English",
+                            kind: str = "match") -> tuple[str, list[str]]:
+    """Returns (markdown_text, warnings). kind: "match" or "kundli"."""
     client = anthropic.Anthropic(api_key=api_key)
+    prompt = KUNDLI_PROMPT if kind == "kundli" else SYSTEM_PROMPT
     request = dict(
         model=model,
         max_tokens=8000,
-        system=SYSTEM_PROMPT.format(language=language),
+        system=prompt.format(language=language),
         messages=[{
             "role": "user",
             "content": "Fact sheet:\n```json\n"
@@ -78,6 +91,8 @@ def generate_interpretation(facts: dict, api_key: str, model: str = DEFAULT_MODE
 
 def check_numbers(text: str, facts: dict) -> list[str]:
     """Flag any 'X/36' or 'X out of 36' that disagrees with the engine."""
+    if "total_score" not in facts:
+        return []
     total = float(facts["total_score"])
     allowed = {total, 36.0} | set(facts.get("score_range_within_birth_time_window") or [])
     found = re.findall(r"(\d+(?:\.\d+)?)\s*(?:/|out of)\s*36", text)

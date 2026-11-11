@@ -87,6 +87,7 @@ class Chart:
     lagna_lon: float | None               # None when birth time is unknown
     ayanamsa: float
     ephemeris: str
+    speeds: dict[str, float] = field(default_factory=dict)   # deg/day; < 0 = retrograde
 
     @property
     def moon(self) -> MoonPos:
@@ -113,13 +114,16 @@ def calculate_chart(utc: datetime, lat: float, lon: float,
     jd = julian_day(utc)
     flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL | swe.FLG_SPEED
     longitudes: dict[str, float] = {}
+    speeds: dict[str, float] = {}
     ephemeris = "Swiss Ephemeris data files"
     for name, pid in PLANETS.items():
         xx, retflag = swe.calc_ut(jd, pid, flags)
         if not retflag & swe.FLG_SWIEPH:
             ephemeris = "Swiss Ephemeris (built-in Moshier model)"
         longitudes[name] = xx[0] % 360.0
+        speeds[name] = xx[3]
     longitudes["Ketu"] = (longitudes["Rahu"] + 180.0) % 360.0
+    speeds["Ketu"] = speeds["Rahu"]
 
     lagna = None
     if with_lagna:
@@ -133,7 +137,23 @@ def calculate_chart(utc: datetime, lat: float, lon: float,
         lagna_lon=lagna,
         ayanamsa=swe.get_ayanamsa_ut(jd),
         ephemeris=ephemeris,
+        speeds=speeds,
     )
+
+
+def sunrise_before(jd_ut: float, lat: float, lon: float) -> float | None:
+    """Julian day (UT) of the last sunrise at or before jd_ut, using the
+    Hindu convention (Sun's disc centre, no refraction). None near the poles."""
+    _configure_thread()
+    flags = swe.CALC_RISE | swe.BIT_HINDU_RISING
+    res, tret = swe.rise_trans(jd_ut - 1.0, swe.SUN, flags, (lon, lat, 0.0))
+    if res != 0:
+        return None
+    rise = tret[0]
+    res2, tret2 = swe.rise_trans(rise + 0.01, swe.SUN, flags, (lon, lat, 0.0))
+    if res2 == 0 and tret2[0] <= jd_ut:
+        rise = tret2[0]
+    return rise if rise <= jd_ut else None
 
 
 def tropical_longitude(utc: datetime, planet: str) -> float:

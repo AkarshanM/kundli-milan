@@ -5,9 +5,27 @@ Run locally:   streamlit run app.py
 from __future__ import annotations
 
 import os
+import sys
 from datetime import date, time, timedelta
+from pathlib import Path
 
 import streamlit as st
+
+# Streamlit Cloud re-runs app.py after a deploy but keeps already-imported
+# modules in memory, so new app code could meet old engine code. Reload the
+# `kundli` modules whenever their files change, and drop any results this
+# session made with the old code.
+import kundli as _pkg  # noqa: E402
+
+_CODE_SIG = max(p.stat().st_mtime for p in Path(_pkg.__file__).parent.glob("*.py"))
+if getattr(_pkg, "_loaded_sig", None) != _CODE_SIG:
+    for _mod in [m for m in sys.modules if m.startswith("kundli.")]:
+        del sys.modules[_mod]
+    _pkg._loaded_sig = _CODE_SIG
+if st.session_state.get("_code_sig") != _CODE_SIG:
+    for _k in ("match", "kundli", "ai", "ai_kundli"):
+        st.session_state.pop(_k, None)
+    st.session_state["_code_sig"] = _CODE_SIG
 
 from kundli.engine import ACCURACY_WINDOWS, NAK_SPAN, Chart, calculate_chart, sweep
 from kundli.i18n import LANGUAGES, M, Name, tr
@@ -16,6 +34,9 @@ from kundli.matching import (ABSENT, CANCELLED, MITIGATED, NOT_CHECKED, Person,
                              match)
 from kundli.places import (Place, all_timezones, local_day_bounds_utc,
                            resolve_local_time, search_places)
+from kundli import kundli_report as KR
+from kundli.charts import south_indian_chart
+from kundli.horoscope import build_horoscope
 from kundli.report import build_facts, koota_quality, moon_text, to_markdown
 
 st.set_page_config(page_title="Kundli Milan", page_icon="🪔", layout="wide")
@@ -106,14 +127,17 @@ def star_form(name: str, key: str) -> dict:
             "manglik": {"yes": True, "no": False}.get(manglik)}
 
 
-def person_form(role: str, key: str) -> dict:
+def person_form(role: str, key: str, kundli: bool = False) -> dict:
+    """kundli=True: a full horoscope needs birth date, time and place, so the
+    rashi/nakshatra shortcut and the 'unknown time' option are not offered."""
     st.subheader(t(role))
     name = st.text_input(t("full_name"), key=f"{key}_name")
-    mode = translated_select(t("mode_label"), ["birth", "star"],
-                             lambda m: t(f"mode_{m}"), f"{key}_mode",
-                             default="birth")
-    if mode == "star":
-        return star_form(name, key)
+    if not kundli:
+        mode = translated_select(t("mode_label"), ["birth", "star"],
+                                 lambda m: t(f"mode_{m}"), f"{key}_mode",
+                                 default="birth")
+        if mode == "star":
+            return star_form(name, key)
     st.markdown(t("dob"))
     c1, c2, c3 = st.columns(3)
     day = c1.selectbox(t("day"), list(range(1, 32)), index=None,
@@ -130,7 +154,8 @@ def person_form(role: str, key: str) -> dict:
         except ValueError:
             st.error(t("invalid_date", month=month_name(month), year=year, day=day))
 
-    accuracy = translated_select(t("accuracy_q"), ACCURACY_KEYS,
+    accuracy = translated_select(t("accuracy_q"),
+                                 ACCURACY_KEYS[:-1] if kundli else ACCURACY_KEYS,
                                  lambda k: t(f"acc_{k}"), f"{key}_acc",
                                  default="exact")
     tm = None
@@ -298,6 +323,155 @@ def chart_table(person: Person) -> str:
     return "\n".join(rows)
 
 
+def ai_section(make_facts, kind: str, state_key: str):
+    """Optional AI write-up; only shown when an API key is configured."""
+    api_key = secret("ANTHROPIC_API_KEY")
+    ai = st.session_state.get(state_key)
+    if not api_key:
+        return ai
+    st.subheader(t("ai_header"))
+    ai_langs = ["English", "Kannada", "Hindi", "Tamil", "Telugu", "Marathi",
+                "Bengali", "Gujarati", "Malayalam"]
+    c1, c2 = st.columns([1, 2])
+    ai_lang = c1.selectbox(t("ai_language"), ai_langs,
+                           index=1 if LANG == "kn" else 0, key=f"{state_key}_lang")
+    c2.write("")
+    if c2.button(t("ai_button"), key=f"{state_key}_btn"):
+        from kundli.ai import DEFAULT_MODEL, AIError, generate_interpretation
+        with st.spinner(t("ai_spinner")):
+            try:
+                ai = generate_interpretation(
+                    make_facts(), api_key, secret("ANTHROPIC_MODEL", DEFAULT_MODEL),
+                    ai_lang, kind=kind)
+                st.session_state[state_key] = ai
+            except AIError as e:
+                st.error(str(e))
+    if ai:
+        text, warns = ai
+        for w in warns:
+            st.warning(w)
+        st.markdown(text)
+        st.caption(t("ai_caption"))
+    return ai
+
+
+def dosha_box(f) -> None:
+    body = f"**{T(f.title)}: {T(Name('status', f.status))}**"
+    if f.time_sensitive:
+        body += "  " + t("depends_time")
+    body += "\n" + "\n".join(f"- {T(d)}" for d in f.details)
+    if f.parihara:
+        body += "\n\n" + t("parihara_applied") + "\n" + "\n".join(
+            f"- {T(p)}" for p in f.parihara)
+    {ABSENT: st.success, CANCELLED: st.info, MITIGATED: st.warning,
+     NOT_CHECKED: st.info}.get(f.status, st.error)(body)
+
+
+def sign_labels() -> list[str]:
+    return [T(Name("rashi", s)).split(" (")[0] for s in range(12)]
+
+
+def show_kundli(res: dict) -> None:
+    h = res["horoscope"]
+    form, rt = res["form"], res["rt"]
+    moon = h.chart.moon
+    st.divider()
+    st.header(t("kundli_title", name=h.person.name))
+    st.caption(resolved_text(form, rt, LANG))
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric(t("k_lagna"), T(Name("rashi", h.lagna_sign)).split(" (")[0])
+    c1.caption(KR.dms(h.lagna_lon % 30))
+    c2.metric(t("k_moon"), T(Name("rashi", moon.rashi)).split(" (")[0])
+    c2.caption(T(moon.describe()))
+    c3.metric(t("k_sun"), T(Name("rashi", h.chart.sign("Sun"))).split(" (")[0])
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.html(south_indian_chart(KR.chart_contents(h, LANG), h.lagna_sign,
+                                   sign_labels(), t("rashi_chart"), h.person.name))
+    with c2:
+        st.html(south_indian_chart(KR.chart_contents(h, LANG, navamsa=True),
+                                   h.lagna_navamsa, sign_labels(),
+                                   t("navamsa_chart"), h.person.name))
+    st.caption(t("chart_legend"))
+
+    st.subheader(t("planets_header"))
+    head = [t("col_body"), t("col_sign"), t("col_degree"), t("col_nak"),
+            t("col_nak_lord"), t("col_house"), t("col_navamsa"), t("col_status")]
+    rows = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+    rows += ["| " + " | ".join(r) + " |" for r in KR.planet_table_rows(h, LANG)]
+    st.markdown("\n".join(rows))
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader(t("panchanga_header"))
+        p = h.panchanga
+        st.markdown("\n".join([
+            f"- **{t('p_vara')}:** {T(Name('vara', p.vara))}",
+            f"- **{t('p_tithi')}:** {KR.tithi_text(h, LANG)}",
+            f"- **{t('p_nakshatra')}:** {T(Name('nakshatra', moon.nakshatra))}",
+            f"- **{t('p_yoga')}:** {T(Name('yoga', p.yoga))}",
+            f"- **{t('p_karana')}:** {T(Name('karana', p.karana))}",
+        ]))
+        st.caption(t("vara_note"))
+    with c2:
+        st.subheader(t("avakahada_header"))
+        st.markdown("\n".join(f"- **{T(k)}:** {T(v)}" for k, v in KR.avakahada(h)))
+
+    st.subheader(t("k_doshas_header"))
+    dosha_box(KR.mangal_finding(h))
+    dosha_box(KR.kaal_sarpa_finding(h))
+    st.info(f"**{t('sade_sati_title')}**\n\n{T(KR.sade_sati_text(h))}")
+
+    st.subheader(t("dasha_header"))
+    st.markdown(T(KR.dasha_balance_msg(h)))
+    cur = KR.current_dasha_msg(h)
+    if cur:
+        st.markdown(f"**{T(cur)}**")
+    birth = h.chart.utc
+    cur_md, cur_ad = h.current_dasha()
+    rows = [f"| {t('col_mahadasha')} | {t('col_from')} | {t('col_to')} | |", "|---|---|---|---|"]
+    for md in h.dashas:
+        start = h.local_date(max(md.start, birth))
+        if md.start < birth:
+            start += " " + t("birth_marker")
+        mark = t("now_marker") if md is cur_md else ""
+        rows.append(f"| {T(Name('planet', md.lord))} | {start} | {h.local_date(md.end)} | {mark} |")
+    st.markdown("\n".join(rows))
+    for md in h.dashas:
+        if md.end < birth:
+            continue
+        with st.expander(t("antardashas_of", lord=Name("planet", md.lord)),
+                         expanded=md is cur_md):
+            sub = [f"| {t('col_antardasha')} | {t('col_from')} | {t('col_to')} | |",
+                   "|---|---|---|---|"]
+            for ad in md.sub:
+                if ad.end <= birth:
+                    continue
+                mark = t("now_marker") if ad is cur_ad else ""
+                sub.append(f"| {T(Name('planet', ad.lord))} | "
+                           f"{h.local_date(max(ad.start, birth))} | "
+                           f"{h.local_date(ad.end)} | {mark} |")
+            st.markdown("\n".join(sub))
+    st.caption(t("dasha_note"))
+
+    if h.notes:
+        st.subheader(t("sensitivity_header"))
+        for n in h.notes:
+            st.warning(T(n))
+
+    ai = ai_section(lambda: KR.kundli_facts(h), "kundli", "ai_kundli")
+    st.download_button(
+        t("download"),
+        data=KR.kundli_markdown(h, LANG, resolved_text(form, rt, LANG),
+                                ai[0] if ai else None),
+        file_name=f"kundli-{h.person.name}.md".replace(" ", "_"),
+        mime="text/markdown",
+        key="dl_kundli",
+    )
+
+
 def show_results(res: dict) -> None:
     bride, groom, r = res["bride"], res["groom"], res["result"]
     resolved = {role: resolved_text(f, rt, LANG) for role, (f, rt) in res["inputs"].items()}
@@ -358,33 +532,7 @@ def show_results(res: dict) -> None:
             st.caption(t("chart_caption", aya=dms(p.chart.ayanamsa),
                          eph=p.chart.ephemeris))
 
-    # ---------------------------------------------------- optional AI
-    api_key = secret("ANTHROPIC_API_KEY")
-    ai = st.session_state.get("ai")
-    if api_key:
-        st.subheader(t("ai_header"))
-        ai_langs = ["English", "Kannada", "Hindi", "Tamil", "Telugu", "Marathi",
-                    "Bengali", "Gujarati", "Malayalam"]
-        c1, c2 = st.columns([1, 2])
-        ai_lang = c1.selectbox(t("ai_language"), ai_langs,
-                               index=1 if LANG == "kn" else 0)
-        c2.write("")
-        if c2.button(t("ai_button")):
-            from kundli.ai import DEFAULT_MODEL, AIError, generate_interpretation
-            with st.spinner(t("ai_spinner")):
-                try:
-                    ai = generate_interpretation(
-                        build_facts(bride, groom, r), api_key,
-                        secret("ANTHROPIC_MODEL", DEFAULT_MODEL), ai_lang)
-                    st.session_state.ai = ai
-                except AIError as e:
-                    st.error(str(e))
-        if ai:
-            text, warns = ai
-            for w in warns:
-                st.warning(w)
-            st.markdown(text)
-            st.caption(t("ai_caption"))
+    ai = ai_section(lambda: build_facts(bride, groom, r), "match", "ai")
 
     st.download_button(
         t("download"),
@@ -397,6 +545,36 @@ def show_results(res: dict) -> None:
 # --------------------------------------------------------------------- page
 st.title("🪔 " + t("title"))
 st.caption(t("caption"))
+
+TASK = translated_select(t("task_label"), ["match", "kundli"],
+                         lambda k: t(f"task_{k}"), "task", default="match")
+
+if TASK == "kundli":
+    col, _ = st.columns([1, 1], gap="large")
+    with col:
+        k_form = person_form("person", "k", kundli=True)
+        k_rt, k_missing = resolve(k_form)
+        show_resolved(k_form, k_rt, k_missing)
+    k_sig = signature(k_form)
+    if st.button(t("kundli_button"), type="primary", disabled=bool(k_missing)):
+        with st.spinner(t("calculating")):
+            person = build_person(k_form, k_rt)
+            place = k_form["place"]
+            st.session_state.kundli = {
+                "sig": k_sig, "form": k_form, "rt": k_rt,
+                "horoscope": build_horoscope(person, place.latitude, place.longitude,
+                                             utc_offset=k_rt.utc_offset),
+            }
+            st.session_state.ai_kundli = None
+    kres = st.session_state.get("kundli")
+    if kres:
+        if kres["sig"] != k_sig:
+            st.info(t("details_changed"))
+        else:
+            show_kundli(kres)
+    st.divider()
+    st.caption(t("kundli_footer"))
+    st.stop()
 
 col_b, col_g = st.columns(2, gap="large")
 with col_b:

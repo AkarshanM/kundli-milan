@@ -5,6 +5,7 @@ A personal Ashtakoota (36 Guna) marriage-matching web app for you and your frien
 - **Calculations:** Swiss Ephemeris (pyswisseph), Lahiri ayanamsa, whole-sign houses
 - **Covers:** all 8 kootas, Nadi / Bhakoot / Gana / Mangal Dosha with cancellation (parihara) rules, and a birth-time sensitivity check that warns when a Moon or Lagna near a boundary could change the result
 - **Place lookup:** free Open-Meteo geocoding (no key), with historical timezone offsets from the IANA database and a manual override
+- **Individual kundli:** choose "Individual kundli" at the top for one person's full horoscope: Rashi (D1) and Navamsa (D9) charts in South Indian style, planet table (sign, degree, nakshatra, house, retrograde, exalted / debilitated / own), Panchanga at birth (vara from sunrise, tithi, yoga, karana), Avakahada details, Mangal and Kaal Sarpa Dosha, today's Sade Sati status, and Vimshottari Mahadashas with Antardashas
 - **Two ways to enter each person:** full birth date, time and place (most accurate), or just **rashi + nakshatra** (+ pada if known) for people who already know their star. The 36-point score is identical either way; Mangal Dosha then uses a "Manglik: yes / no / don't know" answer, since it needs Mars's position
 - **Languages:** English and ಕನ್ನಡ (Kannada), switchable at the top right. All translations live in [kundli/i18n.py](kundli/i18n.py); add a language by adding one entry to `NAMES` and one to `STRINGS`
 - **AI write-up:** optional, and off unless you add an Anthropic API key
@@ -37,7 +38,7 @@ You need a free **GitHub** account. This is a one-time setup of about 15 minutes
 
 Share that link and the password with your friends. It works on phones too.
 
-**After pushing an update:** if the app shows an `ImportError`, open https://share.streamlit.io, click **⋮** next to the app and choose **Reboot**. Streamlit sometimes keeps the old version of the `kundli` modules in memory.
+**After pushing an update:** the app reloads its own code automatically. If it ever still shows an `ImportError`, open https://share.streamlit.io, click **⋮** next to the app and choose **Reboot**.
 
 **Good to know:** free apps go to sleep after a few days without visitors. The next visitor sees a "wake up" button, and the app is back in about 30 seconds.
 
