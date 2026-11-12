@@ -116,6 +116,38 @@ NAMES = {
                        2: "peak: Saturn over the Moon sign",
                        3: "setting: Saturn in the 2nd from the Moon"},
         "yesno": {"yes": "Yes", "no": "No"},
+        "dk": {"dina": "Dina", "gana": "Gana", "mahendra": "Mahendra",
+               "stree_deergha": "Stree Deergha", "yoni": "Yoni", "rashi": "Rashi",
+               "rashyadhipati": "Rashyadhipati", "vashya": "Vashya",
+               "rajju": "Rajju", "vedha": "Vedha"},
+        "dk_result": {"uttama": "Uttama (good)", "madhyama": "Madhyama (average)",
+                      "adhama": "Adhama (no match)"},
+        "rajju": ["Pada (feet)", "Kati (waist)", "Nabhi (navel)", "Kantha (neck)",
+                  "Shiro (head)"],
+        "dk_band": {"good": "7 or more of 10: traditionally a good match",
+                    "average": "5 to 6½ of 10: average",
+                    "weak": "Below 5 of 10: weak",
+                    "critical": "Rajju or Vedha does not match: traditionally not "
+                                "recommended without an astrologer's review"},
+        "system": {"karnataka": "Karnataka / South Indian: Dashakoota (10 kootas)",
+                   "north": "North Indian: Ashtakoota (36 gunas)"},
+        "samvatsara": [
+            "Prabhava", "Vibhava", "Shukla", "Pramoduta", "Prajotpatti",
+            "Angirasa", "Shrimukha", "Bhava", "Yuva", "Dhatu", "Ishvara",
+            "Bahudhanya", "Pramathi", "Vikrama", "Vishu", "Chitrabhanu",
+            "Svabhanu", "Tarana", "Parthiva", "Vyaya", "Sarvajit", "Sarvadhari",
+            "Virodhi", "Vikriti", "Khara", "Nandana", "Vijaya", "Jaya",
+            "Manmatha", "Durmukhi", "Hevilambi", "Vilambi", "Vikari", "Sharvari",
+            "Plava", "Shubhakrit", "Shobhakrit", "Krodhi", "Vishvavasu",
+            "Parabhava", "Plavanga", "Kilaka", "Saumya", "Sadharana",
+            "Virodhikrit", "Paridhavi", "Pramadi", "Ananda", "Rakshasa", "Nala",
+            "Pingala", "Kalayukti", "Siddharthi", "Raudri", "Durmati",
+            "Dundubhi", "Rudhirodgari", "Raktakshi", "Krodhana", "Akshaya"],
+        "masa": ["Chaitra", "Vaishakha", "Jyeshtha", "Ashadha", "Shravana",
+                 "Bhadrapada", "Ashvayuja", "Kartika", "Margashira", "Pushya",
+                 "Magha", "Phalguna"],
+        "ritu": ["Vasanta", "Grishma", "Varsha", "Sharad", "Hemanta", "Shishira"],
+        "ayana": {"uttara": "Uttarayana", "dakshina": "Dakshinayana"},
     },
     "kn": {
         "nakshatra": [
@@ -192,6 +224,35 @@ NAMES = {
                        2: "ಮಧ್ಯ: ಚಂದ್ರ ರಾಶಿಯಲ್ಲಿ ಶನಿ",
                        3: "ಅಂತ್ಯ: ಚಂದ್ರನಿಂದ 2ನೇ ಮನೆಯಲ್ಲಿ ಶನಿ"},
         "yesno": {"yes": "ಹೌದು", "no": "ಇಲ್ಲ"},
+        "dk": {"dina": "ದಿನ", "gana": "ಗಣ", "mahendra": "ಮಾಹೇಂದ್ರ",
+               "stree_deergha": "ಸ್ತ್ರೀ ದೀರ್ಘ", "yoni": "ಯೋನಿ", "rashi": "ರಾಶಿ",
+               "rashyadhipati": "ರಾಶ್ಯಧಿಪತಿ", "vashya": "ವಶ್ಯ",
+               "rajju": "ರಜ್ಜು", "vedha": "ವೇಧ"},
+        "dk_result": {"uttama": "ಉತ್ತಮ", "madhyama": "ಮಧ್ಯಮ", "adhama": "ಅಧಮ"},
+        "rajju": ["ಪಾದ", "ಕಟಿ", "ನಾಭಿ", "ಕಂಠ", "ಶಿರ"],
+        "dk_band": {"good": "10ರಲ್ಲಿ 7 ಅಥವಾ ಹೆಚ್ಚು: ಸಾಂಪ್ರದಾಯಿಕವಾಗಿ ಉತ್ತಮ ಹೊಂದಾಣಿಕೆ",
+                    "average": "10ರಲ್ಲಿ 5 ರಿಂದ 6½: ಸಾಧಾರಣ",
+                    "weak": "10ರಲ್ಲಿ 5ಕ್ಕಿಂತ ಕಡಿಮೆ: ದುರ್ಬಲ",
+                    "critical": "ರಜ್ಜು ಅಥವಾ ವೇಧ ಹೊಂದುವುದಿಲ್ಲ: ಜ್ಯೋತಿಷಿಗಳ "
+                                "ಪರಿಶೀಲನೆ ಇಲ್ಲದೆ ಸಾಂಪ್ರದಾಯಿಕವಾಗಿ ಶಿಫಾರಸು "
+                                "ಮಾಡುವುದಿಲ್ಲ"},
+        "system": {"karnataka": "ಕರ್ನಾಟಕ / ದಕ್ಷಿಣ ಭಾರತ: ದಶಕೂಟ (10 ಕೂಟಗಳು)",
+                   "north": "ಉತ್ತರ ಭಾರತ: ಅಷ್ಟಕೂಟ (36 ಗುಣಗಳು)"},
+        "samvatsara": [
+            "ಪ್ರಭವ", "ವಿಭವ", "ಶುಕ್ಲ", "ಪ್ರಮೋದೂತ", "ಪ್ರಜೋತ್ಪತ್ತಿ", "ಆಂಗೀರಸ",
+            "ಶ್ರೀಮುಖ", "ಭಾವ", "ಯುವ", "ಧಾತು", "ಈಶ್ವರ", "ಬಹುಧಾನ್ಯ", "ಪ್ರಮಾಥಿ",
+            "ವಿಕ್ರಮ", "ವಿಷು", "ಚಿತ್ರಭಾನು", "ಸ್ವಭಾನು", "ತಾರಣ", "ಪಾರ್ಥಿವ",
+            "ವ್ಯಯ", "ಸರ್ವಜಿತ್", "ಸರ್ವಧಾರಿ", "ವಿರೋಧಿ", "ವಿಕೃತಿ", "ಖರ", "ನಂದನ",
+            "ವಿಜಯ", "ಜಯ", "ಮನ್ಮಥ", "ದುರ್ಮುಖಿ", "ಹೇವಿಳಂಬಿ", "ವಿಳಂಬಿ", "ವಿಕಾರಿ",
+            "ಶಾರ್ವರಿ", "ಪ್ಲವ", "ಶುಭಕೃತ್", "ಶೋಭಕೃತ್", "ಕ್ರೋಧಿ", "ವಿಶ್ವಾವಸು",
+            "ಪರಾಭವ", "ಪ್ಲವಂಗ", "ಕೀಲಕ", "ಸೌಮ್ಯ", "ಸಾಧಾರಣ", "ವಿರೋಧಿಕೃತ್",
+            "ಪರಿಧಾವಿ", "ಪ್ರಮಾದಿ", "ಆನಂದ", "ರಾಕ್ಷಸ", "ನಳ", "ಪಿಂಗಳ", "ಕಾಳಯುಕ್ತಿ",
+            "ಸಿದ್ಧಾರ್ಥಿ", "ರೌದ್ರಿ", "ದುರ್ಮತಿ", "ದುಂದುಭಿ", "ರುಧಿರೋದ್ಗಾರಿ",
+            "ರಕ್ತಾಕ್ಷಿ", "ಕ್ರೋಧನ", "ಅಕ್ಷಯ"],
+        "masa": ["ಚೈತ್ರ", "ವೈಶಾಖ", "ಜ್ಯೇಷ್ಠ", "ಆಷಾಢ", "ಶ್ರಾವಣ", "ಭಾದ್ರಪದ",
+                 "ಆಶ್ವಯುಜ", "ಕಾರ್ತಿಕ", "ಮಾರ್ಗಶಿರ", "ಪುಷ್ಯ", "ಮಾಘ", "ಫಾಲ್ಗುಣ"],
+        "ritu": ["ವಸಂತ", "ಗ್ರೀಷ್ಮ", "ವರ್ಷ", "ಶರದ್", "ಹೇಮಂತ", "ಶಿಶಿರ"],
+        "ayana": {"uttara": "ಉತ್ತರಾಯಣ", "dakshina": "ದಕ್ಷಿಣಾಯನ"},
     },
 }
 
@@ -350,6 +411,47 @@ STRINGS = {
                          "South Indian chart style. A kundli describes "
                          "tendencies; it does not fix outcomes.",
         "md_planets_by_sign": "Planets by sign",
+        # ---- Karnataka: Dashakoota and Chandramana
+        "system_label": "Matching system",
+        "dk_header": "Dashakoota (10 kootas)",
+        "dk_metric": "Dashakoota score",
+        "col_result": "Result",
+        "dk_count_note": "Count from the bride's star to the groom's: {n}.",
+        "dk_rashi_note": "The groom's rashi is {n} from the bride's.",
+        "dk_meaning_dina": "Health and well-being in daily life.",
+        "dk_meaning_gana": "Temperament: Deva, Manushya, Rakshasa.",
+        "dk_meaning_mahendra": "Prosperity and progeny.",
+        "dk_meaning_stree_deergha": "The bride's well-being and a long married life.",
+        "dk_meaning_yoni": "Physical and instinctive compatibility.",
+        "dk_meaning_rashi": "Harmony of the two Moon signs; 6/8 is avoided.",
+        "dk_meaning_rashyadhipati": "Friendship between the Moon-sign lords.",
+        "dk_meaning_vashya": "Mutual attraction and affection.",
+        "dk_meaning_rajju": "Most important: the two stars should be in different rajjus.",
+        "dk_meaning_vedha": "Critical: the two stars must not obstruct each other.",
+        "dosha_rajju": "Rajju Dosha",
+        "dosha_vedha": "Vedha Dosha",
+        "rajju_diff": "Different rajjus ({b} / {g}).",
+        "rajju_same": "Both stars are in the {rajju} rajju.",
+        "rajju_note": "Karnataka and South Indian tradition treats this as "
+                      "serious; discuss it with a trusted astrologer.",
+        "vedha_yes": "{b} and {g} are a Vedha (mutually obstructing) pair.",
+        "vedha_no": "{b} and {g} are not a Vedha pair.",
+        "ashtakoota_ref": "North Indian Ashtakoota (36 gunas), for reference",
+        "dashakoota_ref": "Karnataka Dashakoota (10 kootas), for reference",
+        "cm_header": "Chandramana panchanga at birth",
+        "cm_sentence": "Shri {samvatsara} nama samvatsara, {ayana}, {ritu} ritu, "
+                       "{masa} masa, {paksha} paksha, {tithi}, {vara}",
+        "c_samvatsara": "Samvatsara",
+        "c_shaka": "Shalivahana Shaka",
+        "c_ayana": "Ayana",
+        "c_ritu": "Ritu",
+        "c_masa": "Masa (Chandramana)",
+        "adhika": "Adhika {masa}",
+        "c_sunrise": "Sunrise",
+        "c_sunset": "Sunset",
+        "c_ishtakala": "Ishtakala (time since sunrise)",
+        "ishta_value": "{g} ghati {v} vighati",
+        "pdf_download": "Download report (PDF)",
         "note_moon_boundary": "{name}'s Moon is near a boundary. Within the "
                               "birth-time window it could be: {states}.",
         "note_lagna_changes": "{name}'s Lagna (ascendant) changes within the "
@@ -394,7 +496,7 @@ STRINGS = {
                         "indicator, not a medical or genetic test.",
         # ---- UI
         "title": "Kundli Milan",
-        "caption": "Ashtakoota (36 Guna) matching · Swiss Ephemeris · Lahiri ayanamsa",
+        "caption": "Karnataka-style jataka and matching · Swiss Ephemeris · Lahiri ayanamsa",
         "language": "Language / ಭಾಷೆ",
         "password": "Password",
         "wrong_password": "Wrong password.",
@@ -483,10 +585,10 @@ STRINGS = {
         "ai_caption": "Written by AI from the calculated values above. The "
                       "table and dosha results are the source of truth.",
         "download": "Download report (Markdown)",
-        "footer": "For personal use. Calculations follow common North Indian "
-                  "Ashtakoota conventions; regional traditions differ. "
-                  "Astrology is one input among many: values, respect and "
-                  "communication matter most.",
+        "footer": "For personal use. Matching follows Karnataka's Dashakoota "
+                  "(10 kootas) by default, with North Indian Ashtakoota "
+                  "available; regional traditions differ. Astrology is one "
+                  "input among many: values, respect and communication matter most.",
         # ---- Markdown report
         "md_title": "Kundli Milan: {b} & {g}",
         "md_total": "**Total: {total} / 36** ({band})",
@@ -651,6 +753,46 @@ STRINGS = {
                          "ಭಾವಗಳು, ದಕ್ಷಿಣ ಭಾರತೀಯ ಚಕ್ರ ಶೈಲಿ. ಜಾತಕವು ಪ್ರವೃತ್ತಿಗಳನ್ನು "
                          "ವಿವರಿಸುತ್ತದೆ; ಫಲಿತಾಂಶಗಳನ್ನು ನಿಗದಿಪಡಿಸುವುದಿಲ್ಲ.",
         "md_planets_by_sign": "ರಾಶಿವಾರು ಗ್ರಹಗಳು",
+        "system_label": "ಹೊಂದಾಣಿಕೆ ಪದ್ಧತಿ",
+        "dk_header": "ದಶಕೂಟ (10 ಕೂಟಗಳು)",
+        "dk_metric": "ದಶಕೂಟ ಅಂಕ",
+        "col_result": "ಫಲಿತಾಂಶ",
+        "dk_count_note": "ವಧುವಿನ ನಕ್ಷತ್ರದಿಂದ ವರನ ನಕ್ಷತ್ರಕ್ಕೆ ಎಣಿಕೆ: {n}.",
+        "dk_rashi_note": "ವರನ ರಾಶಿ ವಧುವಿನ ರಾಶಿಯಿಂದ {n}ನೇಯದು.",
+        "dk_meaning_dina": "ದೈನಂದಿನ ಜೀವನದಲ್ಲಿ ಆರೋಗ್ಯ ಮತ್ತು ಕ್ಷೇಮ.",
+        "dk_meaning_gana": "ಸ್ವಭಾವ: ದೇವ, ಮನುಷ್ಯ, ರಾಕ್ಷಸ.",
+        "dk_meaning_mahendra": "ಸಂಪತ್ತು ಮತ್ತು ಸಂತಾನ.",
+        "dk_meaning_stree_deergha": "ವಧುವಿನ ಕ್ಷೇಮ ಮತ್ತು ದೀರ್ಘ ದಾಂಪತ್ಯ.",
+        "dk_meaning_yoni": "ದೈಹಿಕ ಮತ್ತು ಸಹಜ ಸ್ವಭಾವದ ಹೊಂದಾಣಿಕೆ.",
+        "dk_meaning_rashi": "ಎರಡು ಚಂದ್ರ ರಾಶಿಗಳ ಸಾಮರಸ್ಯ; ಷಡಷ್ಟಕ (6/8) ತ್ಯಾಜ್ಯ.",
+        "dk_meaning_rashyadhipati": "ರಾಶ್ಯಧಿಪತಿಗಳ ನಡುವಿನ ಮೈತ್ರಿ.",
+        "dk_meaning_vashya": "ಪರಸ್ಪರ ಆಕರ್ಷಣೆ ಮತ್ತು ಪ್ರೀತಿ.",
+        "dk_meaning_rajju": "ಅತ್ಯಂತ ಮುಖ್ಯ: ಎರಡು ನಕ್ಷತ್ರಗಳು ಬೇರೆ ಬೇರೆ ರಜ್ಜುಗಳಲ್ಲಿರಬೇಕು.",
+        "dk_meaning_vedha": "ಮುಖ್ಯ: ಎರಡು ನಕ್ಷತ್ರಗಳು ಪರಸ್ಪರ ವೇಧವಾಗಬಾರದು.",
+        "dosha_rajju": "ರಜ್ಜು ದೋಷ",
+        "dosha_vedha": "ವೇಧ ದೋಷ",
+        "rajju_diff": "ರಜ್ಜುಗಳು ಬೇರೆ ಬೇರೆ ({b} / {g}).",
+        "rajju_same": "ಎರಡೂ ನಕ್ಷತ್ರಗಳು {rajju} ರಜ್ಜುವಿನಲ್ಲಿವೆ.",
+        "rajju_note": "ಕರ್ನಾಟಕ ಮತ್ತು ದಕ್ಷಿಣ ಭಾರತದ ಸಂಪ್ರದಾಯದಲ್ಲಿ ಇದನ್ನು "
+                      "ಗಂಭೀರವೆಂದು ಪರಿಗಣಿಸಲಾಗುತ್ತದೆ; ವಿಶ್ವಾಸಾರ್ಹ ಜ್ಯೋತಿಷಿಗಳೊಂದಿಗೆ ಚರ್ಚಿಸಿ.",
+        "vedha_yes": "{b} ಮತ್ತು {g} ವೇಧ ಜೋಡಿ (ಪರಸ್ಪರ ಅಡ್ಡಿ).",
+        "vedha_no": "{b} ಮತ್ತು {g} ವೇಧ ಜೋಡಿಯಲ್ಲ.",
+        "ashtakoota_ref": "ಉತ್ತರ ಭಾರತೀಯ ಅಷ್ಟಕೂಟ (36 ಗುಣ), ಉಲ್ಲೇಖಕ್ಕಾಗಿ",
+        "dashakoota_ref": "ಕರ್ನಾಟಕ ದಶಕೂಟ (10 ಕೂಟಗಳು), ಉಲ್ಲೇಖಕ್ಕಾಗಿ",
+        "cm_header": "ಜನ್ಮ ಕಾಲದ ಚಾಂದ್ರಮಾನ ಪಂಚಾಂಗ",
+        "cm_sentence": "ಶ್ರೀ {samvatsara} ನಾಮ ಸಂವತ್ಸರದ {ayana}, {ritu} ಋತು, "
+                       "{masa} ಮಾಸ, {paksha} ಪಕ್ಷ, {tithi}, {vara}",
+        "c_samvatsara": "ಸಂವತ್ಸರ",
+        "c_shaka": "ಶಾಲಿವಾಹನ ಶಕ",
+        "c_ayana": "ಅಯನ",
+        "c_ritu": "ಋತು",
+        "c_masa": "ಮಾಸ (ಚಾಂದ್ರಮಾನ)",
+        "adhika": "ಅಧಿಕ {masa}",
+        "c_sunrise": "ಸೂರ್ಯೋದಯ",
+        "c_sunset": "ಸೂರ್ಯಾಸ್ತ",
+        "c_ishtakala": "ಇಷ್ಟಕಾಲ (ಸೂರ್ಯೋದಯದಿಂದ)",
+        "ishta_value": "{g} ಘಳಿಗೆ {v} ವಿಘಳಿಗೆ",
+        "pdf_download": "ವರದಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ (PDF)",
         "note_moon_boundary": "{name} ಅವರ ಚಂದ್ರ ಗಡಿಯ ಹತ್ತಿರವಿದೆ. ಜನ್ಮ ಸಮಯದ "
                               "ಅಂತರದೊಳಗೆ ಅದು ಹೀಗಿರಬಹುದು: {states}.",
         "note_lagna_changes": "{name} ಅವರ ಲಗ್ನ ಜನ್ಮ ಸಮಯದ ಅಂತರದೊಳಗೆ "
@@ -690,7 +832,7 @@ STRINGS = {
                         "ಸಂತಾನಕ್ಕೆ ಸಂಬಂಧಿಸಿದೆ. ಇದು ಸಾಂಪ್ರದಾಯಿಕ ಸೂಚಕ, "
                         "ವೈದ್ಯಕೀಯ ಅಥವಾ ಆನುವಂಶಿಕ ಪರೀಕ್ಷೆಯಲ್ಲ.",
         "title": "ಜಾತಕ ಹೊಂದಾಣಿಕೆ",
-        "caption": "ಅಷ್ಟಕೂಟ (36 ಗುಣ) ಹೊಂದಾಣಿಕೆ · ಸ್ವಿಸ್ ಎಫೆಮೆರಿಸ್ · ಲಾಹಿರಿ ಅಯನಾಂಶ",
+        "caption": "ಕರ್ನಾಟಕ ಶೈಲಿಯ ಜಾತಕ ಮತ್ತು ಹೊಂದಾಣಿಕೆ · ಸ್ವಿಸ್ ಎಫೆಮೆರಿಸ್ · ಲಾಹಿರಿ ಅಯನಾಂಶ",
         "password": "ಪಾಸ್‌ವರ್ಡ್",
         "wrong_password": "ತಪ್ಪು ಪಾಸ್‌ವರ್ಡ್.",
         "bride": "ವಧು",
@@ -777,10 +919,10 @@ STRINGS = {
         "ai_caption": "ಮೇಲಿನ ಲೆಕ್ಕಾಚಾರದ ಮೌಲ್ಯಗಳಿಂದ AI ಬರೆದಿದೆ. ಕೋಷ್ಟಕ ಮತ್ತು "
                       "ದೋಷ ಫಲಿತಾಂಶಗಳೇ ಅಂತಿಮ.",
         "download": "ವರದಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ (Markdown)",
-        "footer": "ವೈಯಕ್ತಿಕ ಬಳಕೆಗಾಗಿ. ಲೆಕ್ಕಾಚಾರಗಳು ಸಾಮಾನ್ಯ ಉತ್ತರ ಭಾರತೀಯ "
-                  "ಅಷ್ಟಕೂಟ ಪದ್ಧತಿಯನ್ನು ಅನುಸರಿಸುತ್ತವೆ; ಪ್ರಾದೇಶಿಕ ಸಂಪ್ರದಾಯಗಳು "
-                  "ಭಿನ್ನವಾಗಿರಬಹುದು. ಜ್ಯೋತಿಷ್ಯ ಹಲವು ಅಂಶಗಳಲ್ಲಿ ಒಂದು ಮಾತ್ರ: "
-                  "ಮೌಲ್ಯಗಳು, ಗೌರವ ಮತ್ತು ಸಂವಹನವೇ ಮುಖ್ಯ.",
+        "footer": "ವೈಯಕ್ತಿಕ ಬಳಕೆಗಾಗಿ. ಹೊಂದಾಣಿಕೆಯು ಮೂಲತಃ ಕರ್ನಾಟಕದ ದಶಕೂಟ "
+                  "(10 ಕೂಟಗಳು) ಪದ್ಧತಿಯನ್ನು ಅನುಸರಿಸುತ್ತದೆ; ಉತ್ತರ ಭಾರತೀಯ ಅಷ್ಟಕೂಟವೂ "
+                  "ಲಭ್ಯವಿದೆ. ಪ್ರಾದೇಶಿಕ ಸಂಪ್ರದಾಯಗಳು ಭಿನ್ನವಾಗಿರಬಹುದು. ಜ್ಯೋತಿಷ್ಯ "
+                  "ಹಲವು ಅಂಶಗಳಲ್ಲಿ ಒಂದು ಮಾತ್ರ: ಮೌಲ್ಯಗಳು, ಗೌರವ ಮತ್ತು ಸಂವಹನವೇ ಮುಖ್ಯ.",
         "md_title": "ಜಾತಕ ಹೊಂದಾಣಿಕೆ: {b} & {g}",
         "md_total": "**ಒಟ್ಟು: {total} / 36** ({band})",
         "md_range": "ಜನ್ಮ ಸಮಯದ ಅಂತರದೊಳಗೆ ಅಂಕಗಳ ವ್ಯಾಪ್ತಿ: {a}-{b}",

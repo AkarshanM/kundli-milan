@@ -409,6 +409,37 @@ class MatchResult:
     score_min: float
     score_max: float
     sensitivity_notes: list[Msg]
+    # Dashakoota (Karnataka / South Indian 10-koota system)
+    dk: list = field(default_factory=list)
+    dk_total: float = 0.0
+    dk_min: float = 0.0
+    dk_max: float = 0.0
+    dk_band: str = ""
+
+
+def rajju_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
+    from .dashakoota import rajju_of
+    rb, rg = rajju_of(b.nakshatra), rajju_of(g.nakshatra)
+    f = DoshaFinding("rajju", M("dosha_rajju"), ABSENT)
+    if rb != rg:
+        f.details.append(M("rajju_diff", b=Name("rajju", rb), g=Name("rajju", rg)))
+    else:
+        f.status = PRESENT
+        f.details.append(M("rajju_same", rajju=Name("rajju", rb)))
+        f.details.append(M("rajju_note"))
+    return f
+
+
+def vedha_dosha(b: MoonPos, g: MoonPos) -> DoshaFinding:
+    from .dashakoota import VEDHA
+    bn, gn = Name("nakshatra", b.nakshatra), Name("nakshatra", g.nakshatra)
+    f = DoshaFinding("vedha", M("dosha_vedha"), ABSENT)
+    if frozenset((b.nakshatra, g.nakshatra)) in VEDHA:
+        f.status = PRESENT
+        f.details.append(M("vedha_yes", b=bn, g=gn))
+    else:
+        f.details.append(M("vedha_no", b=bn, g=gn))
+    return f
 
 
 def match(bride: Person, groom: Person) -> MatchResult:
@@ -419,10 +450,17 @@ def match(bride: Person, groom: Person) -> MatchResult:
     combos = list(product(bride.moon_states, groom.moon_states))
     totals = [total_score(score_kootas(x, y)) for x, y in combos]
 
-    doshas = [nadi_dosha(b, g), bhakoot_dosha(b, g), gana_dosha(b, g)]
+    from .dashakoota import (critical_failures, dashakoota_total, dk_band,
+                             score_dashakoota)
+    dk = score_dashakoota(b, g)
+    dk_totals = [dashakoota_total(score_dashakoota(x, y)) for x, y in combos]
+
+    doshas = [nadi_dosha(b, g), bhakoot_dosha(b, g), gana_dosha(b, g),
+              rajju_dosha(b, g), vedha_dosha(b, g)]
     # Couple-level doshas are sensitive if any alternative Moon state changes them.
     for f in doshas:
-        fn = {"nadi": nadi_dosha, "bhakoot": bhakoot_dosha, "gana": gana_dosha}[f.key]
+        fn = {"nadi": nadi_dosha, "bhakoot": bhakoot_dosha, "gana": gana_dosha,
+              "rajju": rajju_dosha, "vedha": vedha_dosha}[f.key]
         if len({fn(x, y).status for x, y in combos}) > 1:
             f.time_sensitive = True
             f.details.append(M("couple_time_sensitive"))
@@ -446,6 +484,10 @@ def match(bride: Person, groom: Person) -> MatchResult:
             notes.append(M("note_lagna_changes", name=p.name, signs=Join(
                 [Name("rashi", s) for s in p.sweep.lagna_signs])))
 
+    dk_tot = dashakoota_total(dk)
     return MatchResult(kootas=kootas, total=total, band=D.score_band(total),
                        doshas=doshas, score_min=min(totals),
-                       score_max=max(totals), sensitivity_notes=notes)
+                       score_max=max(totals), sensitivity_notes=notes,
+                       dk=dk, dk_total=dk_tot, dk_min=min(dk_totals),
+                       dk_max=max(dk_totals),
+                       dk_band=dk_band(dk_tot, critical_failures(dk)))

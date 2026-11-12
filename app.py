@@ -37,8 +37,8 @@ from kundli.places import (Place, all_timezones, local_day_bounds_utc,
 from kundli import kundli_report as KR
 from kundli.charts import south_indian_chart
 from kundli.horoscope import build_horoscope
-from kundli.report import (build_facts, koota_quality, lagna_text, moon_text,
-                           to_markdown)
+from kundli.report import (build_facts, dk_score_text, doshas_for, koota_quality,
+                           lagna_text, moon_text, to_markdown)
 
 st.set_page_config(page_title="Kundli Milan", page_icon="🪔", layout="wide")
 
@@ -357,6 +357,13 @@ def chart_table(person: Person) -> str:
     return "\n".join(rows)
 
 
+@st.cache_data(show_spinner=False, max_entries=50)
+def pdf_bytes(md: str, charts: tuple = (), labels: tuple = (), subtitle: str = "") -> bytes:
+    from kundli.pdf import render
+    return render(md, "Kundli Milan · kundli-milan.streamlit.app",
+                  list(charts) or None, list(labels) or None, subtitle)
+
+
 def missing_hint(missing_by_role: dict[str, list[str]]) -> None:
     """Say plainly, next to the (disabled) button, what is still needed."""
     parts = [f"**{t(role)}**: " + ", ".join(t(m) for m in miss)
@@ -419,6 +426,8 @@ def show_kundli(res: dict) -> None:
     moon = h.chart.moon
     st.divider()
     st.header(t("kundli_title", name=h.person.name))
+    if h.chandramana:
+        st.markdown(f"*{KR.cm_sentence(h, LANG)}*")
     st.caption(resolved_text(form, rt, LANG))
 
     c1, c2, c3 = st.columns(3)
@@ -447,15 +456,8 @@ def show_kundli(res: dict) -> None:
 
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader(t("panchanga_header"))
-        p = h.panchanga
-        st.markdown("\n".join([
-            f"- **{t('p_vara')}:** {T(Name('vara', p.vara))}",
-            f"- **{t('p_tithi')}:** {KR.tithi_text(h, LANG)}",
-            f"- **{t('p_nakshatra')}:** {T(Name('nakshatra', moon.nakshatra))}",
-            f"- **{t('p_yoga')}:** {T(Name('yoga', p.yoga))}",
-            f"- **{t('p_karana')}:** {T(Name('karana', p.karana))}",
-        ]))
+        st.subheader(t("cm_header"))
+        st.markdown("\n".join(f"- **{k}:** {v}" for k, v in KR.chandramana_rows(h, LANG)))
         st.caption(t("vara_note"))
     with c2:
         st.subheader(t("avakahada_header"))
@@ -504,12 +506,16 @@ def show_kundli(res: dict) -> None:
             st.warning(T(n))
 
     ai = ai_section(lambda: KR.kundli_facts(h), "kundli", "ai_kundli")
+    md = KR.kundli_markdown(h, LANG, resolved_text(form, rt, LANG),
+                            ai[0] if ai else None, for_pdf=True)
+    charts = ((t("rashi_chart"), KR.chart_contents(h, LANG), h.lagna_sign),
+              (t("navamsa_chart"), KR.chart_contents(h, LANG, navamsa=True),
+               h.lagna_navamsa))
     st.download_button(
-        t("download"),
-        data=KR.kundli_markdown(h, LANG, resolved_text(form, rt, LANG),
-                                ai[0] if ai else None),
-        file_name=f"kundli-{h.person.name}.md".replace(" ", "_"),
-        mime="text/markdown",
+        t("pdf_download"),
+        data=pdf_bytes(md, charts, tuple(sign_labels()), h.person.name),
+        file_name=f"kundli-{h.person.name}.pdf".replace(" ", "_"),
+        mime="application/pdf",
         key="dl_kundli",
     )
 
@@ -520,12 +526,20 @@ def show_results(res: dict) -> None:
     st.divider()
     st.header(f"{bride.name} & {groom.name}")
 
+    karnataka = SYSTEM == "karnataka"
     c1, c2, c3 = st.columns(3)
-    c1.metric(t("score_metric"), f"{r.total:g} / 36")
-    c2.markdown(f"**{t('band_label')}**  \n{T(Name('band', r.band))}")
-    if r.score_min != r.score_max:
-        c3.metric(t("range_label"), t("range_value", a=r.score_min, b=r.score_max))
-    st.progress(min(r.total / 36, 1.0))
+    if karnataka:
+        c1.metric(t("dk_metric"), dk_score_text(r))
+        c2.markdown(f"**{t('band_label')}**  \n{T(Name('dk_band', r.dk_band))}")
+        if r.dk_min != r.dk_max:
+            c3.metric(t("range_label"), t("range_value", a=r.dk_min, b=r.dk_max))
+        st.progress(min(r.dk_total / 10, 1.0))
+    else:
+        c1.metric(t("score_metric"), f"{r.total:g} / 36")
+        c2.markdown(f"**{t('band_label')}**  \n{T(Name('band', r.band))}")
+        if r.score_min != r.score_max:
+            c3.metric(t("range_label"), t("range_value", a=r.score_min, b=r.score_max))
+        st.progress(min(r.total / 36, 1.0))
 
     st.subheader(t("birth_stars_header"))
     stars = [f"| | {t('col_rashi')} | {t('col_nak')} | {t('k_lagna')} |", "|---|---|---|---|"]
@@ -536,34 +550,52 @@ def show_results(res: dict) -> None:
                      f"{T(Name('nakshatra', m.nakshatra))} ({pada}) | {lagna_text(p, LANG)} |")
     st.markdown("\n".join(stars))
 
-    st.subheader(t("ashtakoota"))
-    rows = [f"| {t('col_koota')} | {t('bride')} | {t('groom')} | {t('col_score')} |",
-            "|---|---|---|---|"]
-    for k in r.kootas:
-        rows.append(f"| **{T(k.name)}** ({k.max:g}) | {T(k.bride)} | {T(k.groom)} | "
-                    f"**{k.score:g}** / {k.max:g} |")
-    st.markdown("\n".join(rows))
+    def dashakoota_table() -> None:
+        icon = {"uttama": "✅", "madhyama": "🟡", "adhama": "❌"}
+        rows = [f"| {t('col_koota')} | {t('bride')} | {t('groom')} | {t('col_result')} |",
+                "|---|---|---|---|"]
+        for k in r.dk:
+            name = f"**{T(k.name)}**" + (" ⚠️" if k.key in ("rajju", "vedha") else "")
+            rows.append(f"| {name} | {T(k.bride)} | {T(k.groom)} | "
+                        f"{icon[k.result]} {T(Name('dk_result', k.result))} |")
+        st.markdown("\n".join(rows))
+        with st.expander(t("what_means")):
+            for k in r.dk:
+                line = f"**{T(k.name)}:** {t('dk_meaning_' + k.key)}"
+                if k.note:
+                    line += f" *{T(k.note)}*"
+                st.markdown(line)
 
-    with st.expander(t("what_means")):
+    def ashtakoota_table() -> None:
+        rows = [f"| {t('col_koota')} | {t('bride')} | {t('groom')} | {t('col_score')} |",
+                "|---|---|---|---|"]
         for k in r.kootas:
-            line = (f"**{T(k.name)} ({k.score:g}/{k.max:g}, "
-                    f"{T(koota_quality(k.score, k.max))}):** {t('meaning_' + k.key)}")
-            if k.note:
-                line += f" *{T(k.note)}*"
-            st.markdown(line)
+            rows.append(f"| **{T(k.name)}** ({k.max:g}) | {T(k.bride)} | {T(k.groom)} | "
+                        f"**{k.score:g}** / {k.max:g} |")
+        st.markdown("\n".join(rows))
+        with st.expander(t("what_means")):
+            for k in r.kootas:
+                line = (f"**{T(k.name)} ({k.score:g}/{k.max:g}, "
+                        f"{T(koota_quality(k.score, k.max))}):** {t('meaning_' + k.key)}")
+                if k.note:
+                    line += f" *{T(k.note)}*"
+                st.markdown(line)
+
+    if karnataka:
+        st.subheader(t("dk_header"))
+        dashakoota_table()
+        with st.expander(t("ashtakoota_ref") + f": {r.total:g} / 36"):
+            ashtakoota_table()
+    else:
+        st.subheader(t("ashtakoota"))
+        ashtakoota_table()
+        with st.expander(t("dashakoota_ref") + f": {dk_score_text(r)}"):
+            dashakoota_table()
 
     st.subheader(t("doshas_header"))
     st.caption(t("doshas_caption"))
-    for f in r.doshas:
-        body = f"**{T(f.title)}: {T(Name('status', f.status))}**"
-        if f.time_sensitive:
-            body += "  " + t("depends_time")
-        body += "\n" + "\n".join(f"- {T(d)}" for d in f.details)
-        if f.parihara:
-            body += "\n\n" + t("parihara_applied") + "\n" + "\n".join(
-                f"- {T(p)}" for p in f.parihara)
-        {ABSENT: st.success, CANCELLED: st.info, MITIGATED: st.warning,
-         NOT_CHECKED: st.info}.get(f.status, st.error)(body)
+    for f in doshas_for(r, SYSTEM):
+        dosha_box(f)
 
     if r.sensitivity_notes:
         st.subheader(t("sensitivity_header"))
@@ -585,11 +617,12 @@ def show_results(res: dict) -> None:
 
     ai = ai_section(lambda: build_facts(bride, groom, r), "match", "ai")
 
+    md = to_markdown(bride, groom, r, resolved, LANG, ai[0] if ai else None, SYSTEM)
     st.download_button(
-        t("download"),
-        data=to_markdown(bride, groom, r, resolved, LANG, ai[0] if ai else None),
-        file_name=f"kundli-milan-{bride.name}-{groom.name}.md".replace(" ", "_"),
-        mime="text/markdown",
+        t("pdf_download"),
+        data=pdf_bytes(md),
+        file_name=f"jataka-hondanike-{bride.name}-{groom.name}.pdf".replace(" ", "_"),
+        mime="application/pdf",
     )
 
 
@@ -599,6 +632,11 @@ st.caption(t("caption"))
 
 TASK = translated_select(t("task_label"), ["match", "kundli"],
                          lambda k: t(f"task_{k}"), "task", default="match")
+SYSTEM = "karnataka"
+if TASK == "match":
+    SYSTEM = translated_select(t("system_label"), ["karnataka", "north"],
+                               lambda k: T(Name("system", k)), "system",
+                               default="karnataka")
 
 if TASK == "kundli":
     col, _ = st.columns([1, 1], gap="large")

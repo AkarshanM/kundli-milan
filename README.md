@@ -1,12 +1,15 @@
 # Kundli Milan
 
-A personal Ashtakoota (36 Guna) marriage-matching web app for you and your friends.
+A Karnataka-style jataka (horoscope) and marriage-matching web app, in English and ಕನ್ನಡ.
 
 - **Calculations:** Swiss Ephemeris (pyswisseph), Lahiri ayanamsa, whole-sign houses
-- **Covers:** all 8 kootas, Nadi / Bhakoot / Gana / Mangal Dosha with cancellation (parihara) rules, and a birth-time sensitivity check that warns when a Moon or Lagna near a boundary could change the result
+- **Matching, Karnataka style by default:** Dashakoota (ದಶಕೂಟ), the 10 kootas used in Karnataka and South India (Dina, Gana, Mahendra, Stree Deergha, Yoni, Rashi, Rashyadhipati, Vashya, Rajju, Vedha), each judged Uttama / Madhyama / Adhama, with Rajju and Vedha treated as critical. North Indian Ashtakoota (36 gunas) is one click away and is always shown for reference
+- **Doshas:** Rajju, Vedha, Kuja (Mangal, with cancellations), Nadi, Bhakoot and Gana, plus a birth-time sensitivity check that warns when a Moon or Lagna near a boundary could change the result
+- **Chandramana panchanga in the kundli:** samvatsara, Shalivahana Shaka, ayana, ritu, Chandramana masa (amanta, with Adhika masa), paksha, tithi, vara, nakshatra, yoga, karana, sunrise, sunset and ishtakala in ghati-vighati, plus the traditional opening line of a Kannada jataka
+- **PDF reports** in English or Kannada, with the charts drawn in the PDF (Noto Sans / Noto Sans Kannada, SIL Open Font License, in `fonts/`)
 - **Place lookup:** free Open-Meteo geocoding (no key), with historical timezone offsets from the IANA database and a manual override
 - **Individual kundli:** choose "Individual kundli" at the top for one person's full horoscope: Rashi (D1) and Navamsa (D9) charts in South Indian style, planet table (sign, degree, nakshatra, house, retrograde, exalted / debilitated / own), Panchanga at birth (vara from sunrise, tithi, yoga, karana), Avakahada details, Mangal and Kaal Sarpa Dosha, today's Sade Sati status, and Vimshottari Mahadashas with Antardashas
-- **Two ways to enter each person:** full birth date, time and place (most accurate), or just **rashi + nakshatra** (+ pada if known) for people who already know their star. The 36-point score is identical either way; Mangal Dosha then uses a "Manglik: yes / no / don't know" answer, since it needs Mars's position
+- **Two ways to enter each person:** full birth date, time and place (most accurate), or just **rashi + nakshatra** (+ pada if known) for people who already know their star. The koota scores are identical either way; Mangal Dosha then uses a "Manglik: yes / no / don't know" answer, since it needs Mars's position
 - **Languages:** English and ಕನ್ನಡ (Kannada), switchable at the top right. All translations live in [kundli/i18n.py](kundli/i18n.py); add a language by adding one entry to `NAMES` and one to `STRINGS`
 - **AI write-up:** optional, and off unless you add an Anthropic API key
 

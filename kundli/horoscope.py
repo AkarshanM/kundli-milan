@@ -144,6 +144,99 @@ def panchanga(chart: Chart, lat: float, lon: float) -> Panchanga:
                      vara_by_sunrise=by_sunrise)
 
 
+# ------------------------------------------------- Chandramana (Karnataka)
+
+
+def _elongation(jd: float) -> float:
+    sun = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH)[0][0]
+    moon = swe.calc_ut(jd, swe.MOON, swe.FLG_SWIEPH)[0][0]
+    return (moon - sun) % 360.0
+
+
+def _refine_new_moon(t: float) -> float:
+    for _ in range(8):
+        e = _elongation(t)
+        if e > 180:
+            e -= 360
+        t -= e / 12.19          # mean relative speed, deg/day
+    return t
+
+
+def new_moon_before(jd: float) -> float:
+    return _refine_new_moon(jd - _elongation(jd) / 12.19)
+
+
+def new_moon_after(jd: float) -> float:
+    return _refine_new_moon(jd + (360.0 - _elongation(jd)) / 12.19)
+
+
+def _sidereal_sun_sign(jd: float) -> int:
+    lon = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)[0][0]
+    return int(lon // 30) % 12
+
+
+@dataclass
+class Chandramana:
+    samvatsara: int        # 0 = Prabhava ... 59 = Akshaya
+    shaka: int             # Shalivahana Shaka year
+    masa: int              # 0 = Chaitra ... 11 = Phalguna (amanta)
+    adhika: bool
+    ritu: int              # 0 = Vasanta ... 5 = Shishira
+    uttarayana: bool
+    sunrise: datetime | None
+    sunset: datetime | None
+    ishtakala: tuple[int, int] | None   # (ghati, vighati) since sunrise
+
+
+def _jd_to_utc(jd: float) -> datetime:
+    y, m, d, h = swe.revjul(jd, swe.GREG_CAL)
+    return datetime(y, m, d, tzinfo=timezone.utc) + timedelta(hours=h)
+
+
+def chandramana(chart: Chart, lat: float, lon: float) -> Chandramana:
+    """Karnataka's Chandramana (lunar, amanta) calendar details at birth.
+    A month runs from new moon to new moon and is named after the sidereal
+    sign the Sun is in when it begins (Sun in Meena -> Chaitra). A month with
+    no solar ingress is Adhika. The 60-year samvatsara cycle restarts with
+    Prabhava at Ugadi 1987."""
+    from .engine import _configure_thread
+    _configure_thread()
+    jd = chart.jd_ut
+    nm1, nm2 = new_moon_before(jd), new_moon_after(jd)
+    s1, s2 = _sidereal_sun_sign(nm1), _sidereal_sun_sign(nm2)
+    masa = (s1 + 1) % 12
+    year_start = _jd_to_utc(nm1 - masa * 29.53)     # around Ugadi of this year
+    g = year_start.year
+
+    sun = chart.longitudes["Sun"]
+    rise = sunrise_before(jd, lat, lon)
+    sunset = None
+    ishta = None
+    if rise is not None:
+        res, tret = swe.rise_trans(rise, swe.SUN, swe.CALC_SET | swe.BIT_HINDU_RISING,
+                                   (lon, lat, 0.0))
+        if res == 0:
+            sunset = _jd_to_utc(tret[0])
+        ghatis = (jd - rise) * 60.0
+        gh = int(ghatis)
+        vg = int(round((ghatis - gh) * 60))
+        if vg == 60:
+            gh, vg = gh + 1, 0
+        ishta = (gh, vg)
+
+    return Chandramana(
+        samvatsara=(g - 1987) % 60,
+        shaka=g - 78,
+        masa=masa,
+        adhika=(s1 == s2),
+        ritu=masa // 2,
+        uttarayana=(sun >= 270.0 or sun < 90.0),
+        sunrise=_jd_to_utc(rise) if rise is not None else None,
+        sunset=sunset,
+        ishtakala=ishta,
+    )
+
+
 # -------------------------------------------------------------------- dasha
 
 
@@ -248,9 +341,13 @@ class Horoscope:
     computed_at: datetime
     notes: list[Msg]
     utc_offset: timedelta = timedelta(0)   # for showing dates in local time
+    chandramana: Chandramana | None = None
 
     def local_date(self, when: datetime) -> str:
         return (when + self.utc_offset).strftime("%Y-%m-%d")
+
+    def local_time(self, when: datetime | None) -> str:
+        return "" if when is None else (when + self.utc_offset).strftime("%H:%M")
 
     @property
     def chart(self) -> Chart:
@@ -302,6 +399,7 @@ def build_horoscope(person: Person, lat: float, lon: float,
         computed_at=now,
         notes=notes,
         utc_offset=utc_offset,
+        chandramana=chandramana(chart, lat, lon),
     )
 
 

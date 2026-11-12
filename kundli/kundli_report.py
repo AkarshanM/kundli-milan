@@ -29,6 +29,49 @@ def tithi_text(h: Horoscope, lang: str) -> str:
                 tithi=Name("tithi", idx)), lang)
 
 
+def masa_text(h: Horoscope, lang: str) -> str:
+    c = h.chandramana
+    name = Name("masa", c.masa)
+    return tr(M("adhika", masa=name) if c.adhika else name, lang)
+
+
+def cm_sentence(h: Horoscope, lang: str) -> str:
+    """The traditional opening line of a Kannada jataka."""
+    c, p = h.chandramana, h.panchanga
+    i = p.tithi_in_paksha
+    tithi = Name("tithi", i if i < 14 else (14 if p.paksha == "shukla" else 15))
+    return tr(M("cm_sentence",
+                samvatsara=Name("samvatsara", c.samvatsara),
+                ayana=Name("ayana", "uttara" if c.uttarayana else "dakshina"),
+                ritu=Name("ritu", c.ritu), masa=masa_text(h, lang),
+                paksha=Name("paksha", p.paksha), tithi=tithi,
+                vara=Name("vara", p.vara)), lang)
+
+
+def chandramana_rows(h: Horoscope, lang: str) -> list[tuple[str, str]]:
+    c = h.chandramana
+    t = lambda k, **kw: tr(M(k, **kw), lang)  # noqa: E731
+    rows = [
+        (t("c_samvatsara"), tr(Name("samvatsara", c.samvatsara), lang)),
+        (t("c_shaka"), str(c.shaka)),
+        (t("c_ayana"), tr(Name("ayana", "uttara" if c.uttarayana else "dakshina"), lang)),
+        (t("c_ritu"), tr(Name("ritu", c.ritu), lang)),
+        (t("c_masa"), masa_text(h, lang)),
+        (t("p_tithi"), tithi_text(h, lang)),
+        (t("p_vara"), tr(Name("vara", h.panchanga.vara), lang)),
+        (t("p_nakshatra"), tr(h.chart.moon.describe(), lang)),
+        (t("p_yoga"), tr(Name("yoga", h.panchanga.yoga), lang)),
+        (t("p_karana"), tr(Name("karana", h.panchanga.karana), lang)),
+    ]
+    if c.sunrise:
+        rows.append((t("c_sunrise"), h.local_time(c.sunrise)))
+    if c.sunset:
+        rows.append((t("c_sunset"), h.local_time(c.sunset)))
+    if c.ishtakala:
+        rows.append((t("c_ishtakala"), t("ishta_value", g=c.ishtakala[0], v=c.ishtakala[1])))
+    return rows
+
+
 def chart_contents(h: Horoscope, lang: str, navamsa: bool = False) -> dict[int, list[str]]:
     out: dict[int, list[str]] = {}
     lagna = h.lagna_navamsa if navamsa else h.lagna_sign
@@ -148,6 +191,7 @@ def kundli_facts(h: Horoscope) -> dict:
              "navamsa": tr(Name("rashi", p.navamsa), en)}
             for p in h.planets
         ],
+        "chandramana": None if not h.chandramana else dict(chandramana_rows(h, en)),
         "panchanga": {
             "vara": tr(Name("vara", h.panchanga.vara), en),
             "tithi": tithi_text(h, en),
@@ -173,11 +217,16 @@ def kundli_facts(h: Horoscope) -> dict:
 
 
 def kundli_markdown(h: Horoscope, lang: str, resolved: str,
-                    ai_text: str | None = None) -> str:
+                    ai_text: str | None = None, for_pdf: bool = False) -> str:
+    """for_pdf=True emits [[CHART:D1]] / [[CHART:D9]] markers that the PDF
+    builder replaces with drawn South Indian charts."""
     t = lambda key, **kw: tr(M(key, **kw), lang)  # noqa: E731
     T = lambda x: tr(x, lang)  # noqa: E731
     m = h.chart.moon
-    lines = [f"# {t('kundli_title', name=h.person.name)}", "", resolved, "",
+    lines = [f"# {t('kundli_title', name=h.person.name)}", ""]
+    if h.chandramana:
+        lines += [f"*{cm_sentence(h, lang)}*", ""]
+    lines += [resolved, "",
              f"- **{t('k_lagna')}:** {T(Name('rashi', h.lagna_sign))}",
              f"- **{t('k_moon')}:** {T(m.describe())}",
              f"- **{t('k_sun')}:** {T(Name('rashi', h.chart.sign('Sun')))}",
@@ -187,21 +236,28 @@ def kundli_markdown(h: Horoscope, lang: str, resolved: str,
              "|---|---|---|---|---|---|---|---|"]
     lines += ["| " + " | ".join(r) + " |" for r in planet_table_rows(h, lang)]
 
-    for title, nav in ((t("rashi_chart"), False), (t("navamsa_chart"), True)):
-        lines += ["", f"### {title}", ""]
-        contents = chart_contents(h, lang, nav)
-        for s in range(12):
-            if contents.get(s):
-                lines.append(f"- {T(Name('rashi', s))}: {', '.join(contents[s])}")
+    if for_pdf:
+        lines += ["", "[[CHARTS]]"]
+    else:
+        for title, nav in ((t("rashi_chart"), False), (t("navamsa_chart"), True)):
+            lines += ["", f"### {title}", ""]
+            contents = chart_contents(h, lang, nav)
+            for s in range(12):
+                if contents.get(s):
+                    lines.append(f"- {T(Name('rashi', s))}: {', '.join(contents[s])}")
 
-    p = h.panchanga
-    lines += ["", f"## {t('panchanga_header')}", "",
-              f"- **{t('p_vara')}:** {T(Name('vara', p.vara))}",
-              f"- **{t('p_tithi')}:** {tithi_text(h, lang)}",
-              f"- **{t('p_nakshatra')}:** {T(Name('nakshatra', m.nakshatra))}",
-              f"- **{t('p_yoga')}:** {T(Name('yoga', p.yoga))}",
-              f"- **{t('p_karana')}:** {T(Name('karana', p.karana))}",
-              "", f"## {t('avakahada_header')}", ""]
+    if h.chandramana:
+        lines += ["", f"## {t('cm_header')}", ""]
+        lines += [f"- **{k}:** {v}" for k, v in chandramana_rows(h, lang)]
+    else:
+        p = h.panchanga
+        lines += ["", f"## {t('panchanga_header')}", "",
+                  f"- **{t('p_vara')}:** {T(Name('vara', p.vara))}",
+                  f"- **{t('p_tithi')}:** {tithi_text(h, lang)}",
+                  f"- **{t('p_nakshatra')}:** {T(Name('nakshatra', m.nakshatra))}",
+                  f"- **{t('p_yoga')}:** {T(Name('yoga', p.yoga))}",
+                  f"- **{t('p_karana')}:** {T(Name('karana', p.karana))}"]
+    lines += ["", f"## {t('avakahada_header')}", ""]
     lines += [f"- **{T(k)}:** {T(v)}" for k, v in avakahada(h)]
 
     lines += ["", f"## {t('k_doshas_header')}", ""]
